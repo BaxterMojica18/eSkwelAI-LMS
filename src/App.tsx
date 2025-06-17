@@ -20,12 +20,13 @@ import {
   LogOut
 } from 'lucide-react';
 import TeacherDashboard from './components/TeacherDashboard';
+import DeveloperDashboard from './components/DeveloperDashboard';
 import AuthModal from './components/AuthModal';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const { user, profile, loading, signOut, isAuthenticated, isTeacher } = useAuth();
+  const { user, profile, loading, signOut, isAuthenticated, isTeacher, isDeveloper } = useAuth();
 
   const features = [
     {
@@ -117,12 +118,17 @@ function App() {
     );
   }
 
+  // If user is authenticated and is a developer, show developer dashboard
+  if (isAuthenticated && isDeveloper) {
+    return <DeveloperDashboard />;
+  }
+
   // If user is authenticated and is a teacher, show teacher dashboard
   if (isAuthenticated && isTeacher) {
     return <TeacherDashboard />;
   }
 
-  // If user is authenticated but not a teacher, show appropriate dashboard
+  // If user is authenticated but not a teacher or developer, show appropriate dashboard
   if (isAuthenticated && profile) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -230,6 +236,21 @@ function App() {
               <button className="border border-gray-300 text-gray-700 px-8 py-4 rounded-lg hover:bg-gray-50 transition-colors font-semibold">
                 Watch Demo
               </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Developer Access Notice */}
+      <section className="bg-purple-50 border-y border-purple-200 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-center space-x-4">
+            <Code className="h-8 w-8 text-purple-600" />
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-purple-900">Developer Access Available</h3>
+              <p className="text-purple-700">
+                Use <strong>developer@eskwelai.com</strong> / <strong>DevPass123!</strong> to access the developer console
+              </p>
             </div>
           </div>
         </div>
