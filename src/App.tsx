@@ -23,6 +23,7 @@ import TeacherDashboard from './components/TeacherDashboard';
 import DeveloperDashboard from './components/DeveloperDashboard';
 import AuthModal from './components/AuthModal';
 import DevTools from './components/DevTools';
+import DatabaseUserChecker from './components/DatabaseUserChecker';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
@@ -223,6 +224,13 @@ function App() {
           </div>
         </div>
       </header>
+
+      {/* Database User Checker */}
+      <section className="py-12 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <DatabaseUserChecker />
+        </div>
+      </section>
 
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-blue-50 via-white to-green-50 py-20">
