@@ -1,49 +1,26 @@
 import React, { useState } from 'react';
 import { 
   Settings, 
-  Users, 
-  Play, 
+  Database, 
   CheckCircle, 
   XCircle, 
   Loader2,
   Eye,
   EyeOff,
   Copy,
-  Database,
-  Trash2,
-  AlertTriangle,
-  Info
+  Info,
+  AlertTriangle
 } from 'lucide-react';
-import { createTestAuthUsers, checkExistingUsers, cleanupTestUsers, testUsers } from '../utils/createTestUsers';
+import { checkExistingUsers, testUsers } from '../utils/createTestUsers';
 
 const DevTools: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<any[]>([]);
   const [checkResults, setCheckResults] = useState<any[]>([]);
   const [showPasswords, setShowPasswords] = useState(false);
-  const [activeOperation, setActiveOperation] = useState<string | null>(null);
-
-  const handleCreateUsers = async () => {
-    setLoading(true);
-    setActiveOperation('create');
-    setResults([]);
-    
-    try {
-      const creationResults = await createTestAuthUsers();
-      setResults(creationResults);
-    } catch (error) {
-      console.error('Error creating users:', error);
-      setResults([{ email: 'System Error', success: false, error: 'Unexpected error occurred' }]);
-    } finally {
-      setLoading(false);
-      setActiveOperation(null);
-    }
-  };
 
   const handleCheckUsers = async () => {
     setLoading(true);
-    setActiveOperation('check');
     setCheckResults([]);
     
     try {
@@ -54,28 +31,6 @@ const DevTools: React.FC = () => {
       setCheckResults([{ email: 'System Error', profileExists: false, authExists: false, error: 'Unexpected error occurred' }]);
     } finally {
       setLoading(false);
-      setActiveOperation(null);
-    }
-  };
-
-  const handleCleanupUsers = async () => {
-    if (!confirm('Are you sure you want to delete all test users? This action cannot be undone.')) {
-      return;
-    }
-
-    setLoading(true);
-    setActiveOperation('cleanup');
-    setResults([]);
-    
-    try {
-      const cleanupResults = await cleanupTestUsers();
-      setResults(cleanupResults);
-    } catch (error) {
-      console.error('Error cleaning up users:', error);
-      setResults([{ email: 'System Error', success: false, error: 'Unexpected error occurred' }]);
-    } finally {
-      setLoading(false);
-      setActiveOperation(null);
     }
   };
 
@@ -116,114 +71,45 @@ const DevTools: React.FC = () => {
       </div>
 
       <div className="space-y-4">
-        {/* Service Role Key Warning */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+        {/* Manual Creation Notice */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
           <div className="flex items-start space-x-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-amber-800">
-              <p className="font-medium mb-1">Service Role Key Required</p>
-              <p>Add <code className="bg-amber-100 px-1 rounded">VITE_SUPABASE_SERVICE_ROLE_KEY</code> to your .env file to create auth users.</p>
+            <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-blue-800">
+              <p className="font-medium mb-1">Manual User Creation</p>
+              <p>Create test users manually in Supabase Dashboard using the credentials below.</p>
             </div>
           </div>
         </div>
 
-        {/* Test User Management */}
+        {/* User Status Check */}
         <div className="border border-gray-200 rounded-lg p-4">
           <h4 className="font-medium text-gray-900 mb-3 flex items-center space-x-2">
-            <Users className="h-4 w-4" />
-            <span>Test User Management</span>
+            <Database className="h-4 w-4" />
+            <span>User Status Check</span>
           </h4>
           
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <button
-              onClick={handleCreateUsers}
-              disabled={loading}
-              className="bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 text-sm"
-            >
-              {loading && activeOperation === 'create' ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Creating...</span>
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4" />
-                  <span>Create Users</span>
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={handleCheckUsers}
-              disabled={loading}
-              className="bg-gray-600 text-white py-2 px-3 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 text-sm"
-            >
-              {loading && activeOperation === 'check' ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Checking...</span>
-                </>
-              ) : (
-                <>
-                  <Database className="h-4 w-4" />
-                  <span>Check Status</span>
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={handleCleanupUsers}
-              disabled={loading}
-              className="bg-red-600 text-white py-2 px-3 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 text-sm col-span-2"
-            >
-              {loading && activeOperation === 'cleanup' ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Cleaning...</span>
-                </>
-              ) : (
-                <>
-                  <Trash2 className="h-4 w-4" />
-                  <span>Cleanup All Users</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Creation Results */}
-          {results.length > 0 && (
-            <div className="space-y-2 mb-4">
-              <h5 className="text-sm font-medium text-gray-700">
-                {activeOperation === 'cleanup' ? 'Cleanup Results:' : 'Creation Results:'}
-              </h5>
-              <div className="max-h-32 overflow-y-auto space-y-1">
-                {results.map((result, index) => (
-                  <div key={index} className={`flex items-start space-x-2 text-xs p-2 rounded ${
-                    result.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-                  }`}>
-                    {result.success ? (
-                      <CheckCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                    ) : (
-                      <XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium">{result.email}</div>
-                      {result.error && (
-                        <div className="text-xs opacity-75 break-words">{result.error}</div>
-                      )}
-                      {result.message && (
-                        <div className="text-xs opacity-75">{result.message}</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <button
+            onClick={handleCheckUsers}
+            disabled={loading}
+            className="w-full bg-gray-600 text-white py-2 px-3 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 text-sm mb-4"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Checking...</span>
+              </>
+            ) : (
+              <>
+                <Database className="h-4 w-4" />
+                <span>Check User Status</span>
+              </>
+            )}
+          </button>
 
           {/* Check Results */}
           {checkResults.length > 0 && (
-            <div className="space-y-2 mb-4">
+            <div className="space-y-2">
               <h5 className="text-sm font-medium text-gray-700">Status Check:</h5>
               <div className="max-h-32 overflow-y-auto space-y-1">
                 {checkResults.map((result, index) => (
@@ -291,17 +177,18 @@ const DevTools: React.FC = () => {
           </div>
         </div>
 
-        {/* Instructions */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        {/* Manual Creation Instructions */}
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
           <div className="flex items-start space-x-2">
-            <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
             <div>
-              <h5 className="text-sm font-medium text-blue-900 mb-1">Quick Start:</h5>
-              <ol className="text-xs text-blue-800 space-y-1">
-                <li>1. Add service role key to .env file</li>
-                <li>2. Click "Create Users" to set up auth</li>
-                <li>3. Use credentials above to log in</li>
-                <li>4. Each role shows different features</li>
+              <h5 className="text-sm font-medium text-amber-900 mb-1">Manual Setup Required:</h5>
+              <ol className="text-xs text-amber-800 space-y-1">
+                <li>1. Go to Supabase Dashboard → Authentication</li>
+                <li>2. Click "Add User" for each credential above</li>
+                <li>3. Use the exact email/password combinations</li>
+                <li>4. Set "Email Confirmed" to true</li>
+                <li>5. Test login using the Database User Checker</li>
               </ol>
             </div>
           </div>
