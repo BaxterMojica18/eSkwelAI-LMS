@@ -22,6 +22,7 @@ import {
 import TeacherDashboard from './components/TeacherDashboard';
 import DeveloperDashboard from './components/DeveloperDashboard';
 import AuthModal from './components/AuthModal';
+import DevTools from './components/DevTools';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
@@ -120,53 +121,66 @@ function App() {
 
   // If user is authenticated and is a developer, show developer dashboard
   if (isAuthenticated && isDeveloper) {
-    return <DeveloperDashboard />;
+    return (
+      <>
+        <DeveloperDashboard />
+        <DevTools />
+      </>
+    );
   }
 
   // If user is authenticated and is a teacher, show teacher dashboard
   if (isAuthenticated && isTeacher) {
-    return <TeacherDashboard />;
+    return (
+      <>
+        <TeacherDashboard />
+        <DevTools />
+      </>
+    );
   }
 
   // If user is authenticated but not a teacher or developer, show appropriate dashboard
   if (isAuthenticated && profile) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-lg p-8">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
-                  Welcome, {profile.first_name} {profile.last_name}
-                </h1>
-                <p className="text-gray-600 capitalize">
-                  {profile.role} Dashboard
+      <>
+        <div className="min-h-screen bg-gray-50 p-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    Welcome, {profile.first_name} {profile.last_name}
+                  </h1>
+                  <p className="text-gray-600 capitalize">
+                    {profile.role} Dashboard
+                  </p>
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-red-600 transition-colors"
+                >
+                  <LogOut className="h-5 w-5" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h2 className="text-xl font-semibold text-blue-900 mb-2">
+                  {profile.role === 'student' && 'Student Portal'}
+                  {profile.role === 'parent' && 'Parent Portal'}
+                  {profile.role === 'admin' && 'Administrator Dashboard'}
+                  {profile.role === 'accounting' && 'Accounting Dashboard'}
+                  {profile.role === 'developer' && 'Developer Console'}
+                </h2>
+                <p className="text-blue-700">
+                  Your personalized dashboard is being prepared. Full functionality will be available soon.
                 </p>
               </div>
-              <button
-                onClick={handleSignOut}
-                className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-red-600 transition-colors"
-              >
-                <LogOut className="h-5 w-5" />
-                <span>Sign Out</span>
-              </button>
-            </div>
-            
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <h2 className="text-xl font-semibold text-blue-900 mb-2">
-                {profile.role === 'student' && 'Student Portal'}
-                {profile.role === 'parent' && 'Parent Portal'}
-                {profile.role === 'admin' && 'Administrator Dashboard'}
-                {profile.role === 'accounting' && 'Accounting Dashboard'}
-                {profile.role === 'developer' && 'Developer Console'}
-              </h2>
-              <p className="text-blue-700">
-                Your personalized dashboard is being prepared. Full functionality will be available soon.
-              </p>
             </div>
           </div>
         </div>
-      </div>
+        <DevTools />
+      </>
     );
   }
 
@@ -178,6 +192,9 @@ function App() {
         onClose={() => setShowAuthModal(false)}
         onSuccess={handleAuthSuccess}
       />
+
+      {/* Dev Tools */}
+      <DevTools />
 
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
