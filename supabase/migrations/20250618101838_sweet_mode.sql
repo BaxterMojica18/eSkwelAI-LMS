@@ -1,41 +1,44 @@
 /*
-  # Fresh Start Migration - Complete LMS Schema
-
-  This migration creates the entire database schema from scratch with proper UUID handling.
-
-  ## Tables Created:
-  1. Schools - Educational institutions
-  2. School Levels - Grade levels within schools  
-  3. Sections - Classes within grade levels
-  4. User Profiles - All user information
-  5. Enrollments - Student-section relationships
-  6. Teacher Sections - Teacher-section assignments
-  7. Parent Student Relationships - Family connections
-  8. Learning Modules - Educational content
-  9. Assessments - Tests and quizzes
-  10. Questions - Assessment questions
-  11. Student Responses - Student answers
-  12. Grades - Assessment results
-  13. Payments - Financial transactions
-  14. Announcements - School communications
-  15. Enrollment QR Codes - QR code enrollment system
-  16. QR Enrollment Logs - QR code usage tracking
-
-  ## Security:
-  - Row Level Security enabled on all tables
-  - Proper policies for each user role
-  - Developer role has full access for administration
+  # Complete Fresh Start Migration
+  
+  This migration creates the entire eSkwelAI-LMS database schema from scratch
+  with proper UUID handling and no conflicts.
+  
+  1. Custom Types
+  2. Core Tables (Schools, Users, etc.)
+  3. Academic Tables (Sections, Enrollments, etc.)
+  4. Learning Tables (Modules, Assessments, etc.)
+  5. QR Enrollment System
+  6. Row Level Security Policies
+  7. Helper Functions
 */
 
 -- Create custom types
-CREATE TYPE user_role AS ENUM ('student', 'teacher', 'parent', 'admin', 'accounting', 'developer');
-CREATE TYPE assessment_type AS ENUM ('quiz', 'exam', 'assessment');
-CREATE TYPE question_type AS ENUM ('multiple_choice', 'fill_blank', 'enumeration');
-CREATE TYPE payment_status AS ENUM ('pending', 'paid', 'overdue', 'cancelled');
-CREATE TYPE module_type AS ENUM ('pdf', 'video');
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+    CREATE TYPE user_role AS ENUM ('student', 'teacher', 'parent', 'admin', 'accounting', 'developer');
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'assessment_type') THEN
+    CREATE TYPE assessment_type AS ENUM ('quiz', 'exam', 'assessment');
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'question_type') THEN
+    CREATE TYPE question_type AS ENUM ('multiple_choice', 'fill_blank', 'enumeration');
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_status') THEN
+    CREATE TYPE payment_status AS ENUM ('pending', 'paid', 'overdue', 'cancelled');
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'module_type') THEN
+    CREATE TYPE module_type AS ENUM ('pdf', 'video');
+  END IF;
+END $$;
 
 -- Schools table
-CREATE TABLE schools (
+CREATE TABLE IF NOT EXISTS schools (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   address text,
@@ -47,18 +50,19 @@ CREATE TABLE schools (
   updated_at timestamptz DEFAULT now()
 );
 
--- Insert default school
-INSERT INTO schools (id, name, address, phone, email, settings) VALUES (
+-- Insert default school with explicit UUID
+INSERT INTO schools (id, name, address, phone, email, settings) 
+VALUES (
   '00000000-0000-0000-0000-000000000001'::uuid,
   'Default School',
   'Default Address',
   'Default Phone',
   'default@school.edu',
   '{}'::jsonb
-);
+) ON CONFLICT (id) DO NOTHING;
 
 -- School levels table
-CREATE TABLE school_levels (
+CREATE TABLE IF NOT EXISTS school_levels (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   school_id uuid REFERENCES schools(id) ON DELETE CASCADE,
   name text NOT NULL,
@@ -68,7 +72,7 @@ CREATE TABLE school_levels (
 );
 
 -- Sections table
-CREATE TABLE sections (
+CREATE TABLE IF NOT EXISTS sections (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   school_level_id uuid REFERENCES school_levels(id) ON DELETE CASCADE,
   name text NOT NULL,
@@ -78,7 +82,7 @@ CREATE TABLE sections (
 );
 
 -- User profiles table
-CREATE TABLE user_profiles (
+CREATE TABLE IF NOT EXISTS user_profiles (
   id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   school_id uuid NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   role user_role NOT NULL,
@@ -96,7 +100,7 @@ CREATE TABLE user_profiles (
 );
 
 -- Enrollments table
-CREATE TABLE enrollments (
+CREATE TABLE IF NOT EXISTS enrollments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE,
   section_id uuid REFERENCES sections(id) ON DELETE CASCADE,
@@ -108,7 +112,7 @@ CREATE TABLE enrollments (
 );
 
 -- Teacher sections table
-CREATE TABLE teacher_sections (
+CREATE TABLE IF NOT EXISTS teacher_sections (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   teacher_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE,
   section_id uuid REFERENCES sections(id) ON DELETE CASCADE,
@@ -120,7 +124,7 @@ CREATE TABLE teacher_sections (
 );
 
 -- Parent student relationships table
-CREATE TABLE parent_student_relationships (
+CREATE TABLE IF NOT EXISTS parent_student_relationships (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   parent_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE,
   student_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE,
@@ -131,7 +135,7 @@ CREATE TABLE parent_student_relationships (
 );
 
 -- Learning modules table
-CREATE TABLE learning_modules (
+CREATE TABLE IF NOT EXISTS learning_modules (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   section_id uuid REFERENCES sections(id) ON DELETE CASCADE,
   teacher_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE,
@@ -148,7 +152,7 @@ CREATE TABLE learning_modules (
 );
 
 -- Assessments table
-CREATE TABLE assessments (
+CREATE TABLE IF NOT EXISTS assessments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   section_id uuid REFERENCES sections(id) ON DELETE CASCADE,
   teacher_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE,
@@ -166,7 +170,7 @@ CREATE TABLE assessments (
 );
 
 -- Questions table
-CREATE TABLE questions (
+CREATE TABLE IF NOT EXISTS questions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   assessment_id uuid REFERENCES assessments(id) ON DELETE CASCADE,
   question_text text NOT NULL,
@@ -180,7 +184,7 @@ CREATE TABLE questions (
 );
 
 -- Student responses table
-CREATE TABLE student_responses (
+CREATE TABLE IF NOT EXISTS student_responses (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE,
   question_id uuid REFERENCES questions(id) ON DELETE CASCADE,
@@ -193,7 +197,7 @@ CREATE TABLE student_responses (
 );
 
 -- Grades table
-CREATE TABLE grades (
+CREATE TABLE IF NOT EXISTS grades (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE,
   assessment_id uuid REFERENCES assessments(id) ON DELETE CASCADE,
@@ -211,7 +215,7 @@ CREATE TABLE grades (
 );
 
 -- Payments table
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   school_id uuid REFERENCES schools(id) ON DELETE CASCADE,
   student_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE,
@@ -231,7 +235,7 @@ CREATE TABLE payments (
 );
 
 -- Announcements table
-CREATE TABLE announcements (
+CREATE TABLE IF NOT EXISTS announcements (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   school_id uuid REFERENCES schools(id) ON DELETE CASCADE,
   author_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE,
@@ -248,7 +252,7 @@ CREATE TABLE announcements (
 );
 
 -- Enrollment QR codes table
-CREATE TABLE enrollment_qr_codes (
+CREATE TABLE IF NOT EXISTS enrollment_qr_codes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   teacher_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE,
   section_id uuid REFERENCES sections(id) ON DELETE CASCADE,
@@ -265,7 +269,7 @@ CREATE TABLE enrollment_qr_codes (
 );
 
 -- QR enrollment logs table
-CREATE TABLE qr_enrollment_logs (
+CREATE TABLE IF NOT EXISTS qr_enrollment_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   qr_code_id uuid REFERENCES enrollment_qr_codes(id) ON DELETE CASCADE,
   student_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE,
@@ -278,23 +282,23 @@ CREATE TABLE qr_enrollment_logs (
 );
 
 -- Create indexes for performance
-CREATE INDEX idx_user_profiles_school_id ON user_profiles(school_id);
-CREATE INDEX idx_user_profiles_role ON user_profiles(role);
-CREATE INDEX idx_enrollments_student_id ON enrollments(student_id);
-CREATE INDEX idx_enrollments_section_id ON enrollments(section_id);
-CREATE INDEX idx_teacher_sections_teacher_id ON teacher_sections(teacher_id);
-CREATE INDEX idx_teacher_sections_section_id ON teacher_sections(section_id);
-CREATE INDEX idx_assessments_section_id ON assessments(section_id);
-CREATE INDEX idx_questions_assessment_id ON questions(assessment_id);
-CREATE INDEX idx_student_responses_student_id ON student_responses(student_id);
-CREATE INDEX idx_grades_student_id ON grades(student_id);
-CREATE INDEX idx_payments_student_id ON payments(student_id);
-CREATE INDEX idx_announcements_school_id ON announcements(school_id);
-CREATE INDEX idx_enrollment_qr_codes_teacher_id ON enrollment_qr_codes(teacher_id);
-CREATE INDEX idx_enrollment_qr_codes_section_id ON enrollment_qr_codes(section_id);
-CREATE INDEX idx_enrollment_qr_codes_qr_code ON enrollment_qr_codes(qr_code);
-CREATE INDEX idx_qr_enrollment_logs_qr_code_id ON qr_enrollment_logs(qr_code_id);
-CREATE INDEX idx_qr_enrollment_logs_student_id ON qr_enrollment_logs(student_id);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_school_id ON user_profiles(school_id);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_role ON user_profiles(role);
+CREATE INDEX IF NOT EXISTS idx_enrollments_student_id ON enrollments(student_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_section_id ON enrollments(section_id);
+CREATE INDEX IF NOT EXISTS idx_teacher_sections_teacher_id ON teacher_sections(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_teacher_sections_section_id ON teacher_sections(section_id);
+CREATE INDEX IF NOT EXISTS idx_assessments_section_id ON assessments(section_id);
+CREATE INDEX IF NOT EXISTS idx_questions_assessment_id ON questions(assessment_id);
+CREATE INDEX IF NOT EXISTS idx_student_responses_student_id ON student_responses(student_id);
+CREATE INDEX IF NOT EXISTS idx_grades_student_id ON grades(student_id);
+CREATE INDEX IF NOT EXISTS idx_payments_student_id ON payments(student_id);
+CREATE INDEX IF NOT EXISTS idx_announcements_school_id ON announcements(school_id);
+CREATE INDEX IF NOT EXISTS idx_enrollment_qr_codes_teacher_id ON enrollment_qr_codes(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_enrollment_qr_codes_section_id ON enrollment_qr_codes(section_id);
+CREATE INDEX IF NOT EXISTS idx_enrollment_qr_codes_qr_code ON enrollment_qr_codes(qr_code);
+CREATE INDEX IF NOT EXISTS idx_qr_enrollment_logs_qr_code_id ON qr_enrollment_logs(qr_code_id);
+CREATE INDEX IF NOT EXISTS idx_qr_enrollment_logs_student_id ON qr_enrollment_logs(student_id);
 
 -- Enable Row Level Security on all tables
 ALTER TABLE schools ENABLE ROW LEVEL SECURITY;
@@ -694,7 +698,7 @@ CREATE POLICY "Developers have full access to QR logs" ON qr_enrollment_logs
   USING (EXISTS (SELECT 1 FROM user_profiles WHERE id = auth.uid() AND role = 'developer'));
 
 -- Create a view for test accounts (helpful for development)
-CREATE VIEW test_accounts AS
+CREATE OR REPLACE VIEW test_accounts AS
 SELECT 
   id,
   role,
