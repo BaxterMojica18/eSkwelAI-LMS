@@ -119,7 +119,18 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
     const { user, profile, error } = await authService.signUp(signUpData);
 
     if (error) {
-      setError(error.message);
+      // Handle specific error cases
+      if (error.message.includes('User already registered') || error.message.includes('user_already_exists')) {
+        setError('An account with this email already exists. Please sign in instead or use a different email address.');
+        // Optionally switch to sign in mode
+        setTimeout(() => {
+          setMode('signin');
+          setSignInData(prev => ({ ...prev, email: signUpData.email }));
+          setError('Please sign in with your existing account.');
+        }, 3000);
+      } else {
+        setError(error.message);
+      }
     } else if (user && profile) {
       setSuccess('Account created successfully! Please check your email to verify your account.');
       // Don't auto-login until email is verified
@@ -243,15 +254,15 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
 
           {/* Error/Success Messages */}
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-2">
-              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-2">
+              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
               <span className="text-red-700 text-sm">{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2">
-              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start space-x-2">
+              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
               <span className="text-green-700 text-sm">{success}</span>
             </div>
           )}

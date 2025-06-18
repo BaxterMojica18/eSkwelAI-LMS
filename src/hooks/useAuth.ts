@@ -30,13 +30,38 @@ export const useAuth = () => {
         if (session?.user && mounted) {
           setUser(session.user);
           
-          // Get user profile
-          const { profile: userProfile, error: profileError } = await authService.getCurrentUserProfile();
+          // Get user profile with retry logic for RLS policy issues
+          let retryCount = 0;
+          const maxRetries = 3;
           
-          if (profileError) {
-            console.error('Profile error:', profileError);
-          } else if (userProfile) {
-            setProfile(userProfile);
+          while (retryCount < maxRetries) {
+            try {
+              const { profile: userProfile, error: profileError } = await authService.getCurrentUserProfile();
+              
+              if (profileError) {
+                if (profileError.message.includes('infinite recursion') && retryCount < maxRetries - 1) {
+                  console.warn(`Profile fetch attempt ${retryCount + 1} failed with recursion error, retrying...`);
+                  retryCount++;
+                  // Wait a bit before retrying
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                  continue;
+                } else {
+                  console.error('Profile error:', profileError);
+                  break;
+                }
+              } else if (userProfile) {
+                setProfile(userProfile);
+                break;
+              }
+            } catch (err) {
+              console.error('Profile fetch error:', err);
+              if (retryCount < maxRetries - 1) {
+                retryCount++;
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                continue;
+              }
+              break;
+            }
           }
         }
       } catch (error) {
@@ -61,12 +86,37 @@ export const useAuth = () => {
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user);
           
-          // Get user profile
-          const { profile: userProfile, error } = await authService.getCurrentUserProfile();
-          if (error) {
-            console.error('Profile fetch error:', error);
-          } else {
-            setProfile(userProfile);
+          // Get user profile with retry logic
+          let retryCount = 0;
+          const maxRetries = 3;
+          
+          while (retryCount < maxRetries) {
+            try {
+              const { profile: userProfile, error } = await authService.getCurrentUserProfile();
+              
+              if (error) {
+                if (error.message.includes('infinite recursion') && retryCount < maxRetries - 1) {
+                  console.warn(`Profile fetch attempt ${retryCount + 1} failed with recursion error, retrying...`);
+                  retryCount++;
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                  continue;
+                } else {
+                  console.error('Profile fetch error:', error);
+                  break;
+                }
+              } else if (userProfile) {
+                setProfile(userProfile);
+                break;
+              }
+            } catch (err) {
+              console.error('Profile fetch error:', err);
+              if (retryCount < maxRetries - 1) {
+                retryCount++;
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                continue;
+              }
+              break;
+            }
           }
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
