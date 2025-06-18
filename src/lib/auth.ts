@@ -31,53 +31,28 @@ export interface ResetPasswordData {
 }
 
 class AuthService {
-  // Get or create default school
+  // Get or create default school using the database function
   private async getDefaultSchool(): Promise<string> {
     try {
-      // First, try to find an existing default school
-      const { data: existingSchool, error: findError } = await supabase
-        .from('schools')
-        .select('id')
-        .eq('name', 'Default School')
-        .single();
-
-      if (!findError && existingSchool) {
-        return existingSchool.id;
+      const { data, error } = await supabase.rpc('get_default_school_id');
+      
+      if (error) {
+        console.error('Error getting default school:', error);
+        throw error;
       }
-
-      // If no default school exists, create one
-      const { data: newSchool, error: createError } = await supabase
-        .from('schools')
-        .insert({
-          name: 'Default School',
-          address: '123 Education Street',
-          phone: '+1 (555) 123-4567',
-          email: 'admin@defaultschool.edu',
-          settings: {}
-        })
-        .select('id')
-        .single();
-
-      if (createError) {
-        throw createError;
-      }
-
-      return newSchool.id;
+      
+      return data;
     } catch (error) {
-      console.error('Error getting/creating default school:', error);
-      // Fallback: generate a UUID for the school
-      const { data } = await supabase.rpc('gen_random_uuid');
-      return data || '11111111-1111-1111-1111-111111111111';
+      console.error('Error in getDefaultSchool:', error);
+      // Fallback: return a hardcoded UUID if all else fails
+      return '11111111-1111-1111-1111-111111111111';
     }
   }
 
   // Sign up with email and password
   async signUp(data: SignUpData): Promise<{ user: any; profile: UserProfile | null; error: AuthError | null }> {
     try {
-      // Get or create default school
-      const schoolId = data.schoolId || await this.getDefaultSchool();
-
-      // Create auth user
+      // Create auth user first
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -86,6 +61,7 @@ class AuthService {
             first_name: data.firstName,
             last_name: data.lastName,
             phone: data.phone,
+            role: data.role
           }
         }
       });
@@ -98,35 +74,40 @@ class AuthService {
         return { user: null, profile: null, error: { message: 'Failed to create user account' } };
       }
 
-      // Create user profile
-      const profileData = {
-        id: authData.user.id,
-        school_id: schoolId, // Now using a proper UUID
-        role: data.role,
+      // Get or create default school
+      const schoolId = data.schoolId || await this.getDefaultSchool();
+
+      // Create user profile using the database function
+      const { data: profileId, error: profileError } = await supabase.rpc('create_user_profile', {
+        user_id: authData.user.id,
+        user_email: data.email,
+        user_role: data.role,
         first_name: data.firstName,
         last_name: data.lastName,
-        email: data.email,
-        phone: data.phone || null,
-        address: data.address || null,
-        date_of_birth: data.dateOfBirth || null,
-        is_active: true,
-        metadata: {}
-      };
-
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .insert(profileData)
-        .select()
-        .single();
+        user_phone: data.phone || null,
+        user_address: data.address || null,
+        school_id: schoolId
+      });
 
       if (profileError) {
-        // Clean up auth user if profile creation fails
-        await supabase.auth.admin.deleteUser(authData.user.id);
-        return { user: null, profile: null, error: { message: 'Failed to create user profile', code: profileError.code } };
+        console.error('Profile creation error:', profileError);
+        return { user: authData.user, profile: null, error: { message: 'Failed to create user profile', code: profileError.code } };
+      }
+
+      // Fetch the created profile
+      const { data: profile, error: fetchError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (fetchError) {
+        return { user: authData.user, profile: null, error: { message: 'Profile created but failed to fetch', code: fetchError.code } };
       }
 
       return { user: authData.user, profile, error: null };
     } catch (error: any) {
+      console.error('Signup error:', error);
       return { user: null, profile: null, error: { message: error.message || 'An unexpected error occurred' } };
     }
   }
