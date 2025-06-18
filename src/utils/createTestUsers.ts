@@ -25,7 +25,6 @@ interface TestUser {
   role: string;
   firstName: string;
   lastName: string;
-  profileId: string;
   phone: string;
 }
 
@@ -36,7 +35,6 @@ const testUsers: TestUser[] = [
     role: 'developer',
     firstName: 'Alex',
     lastName: 'Developer',
-    profileId: '10000000-0000-0000-0000-000000000001',
     phone: '+1 (555) 100-0001'
   },
   {
@@ -45,7 +43,6 @@ const testUsers: TestUser[] = [
     role: 'teacher',
     firstName: 'Sarah',
     lastName: 'Johnson',
-    profileId: '10000000-0000-0000-0000-000000000002',
     phone: '+1 (555) 100-0002'
   },
   {
@@ -54,7 +51,6 @@ const testUsers: TestUser[] = [
     role: 'student',
     firstName: 'Emma',
     lastName: 'Wilson',
-    profileId: '10000000-0000-0000-0000-000000000003',
     phone: '+1 (555) 100-0003'
   },
   {
@@ -63,7 +59,6 @@ const testUsers: TestUser[] = [
     role: 'parent',
     firstName: 'Michael',
     lastName: 'Wilson',
-    profileId: '10000000-0000-0000-0000-000000000004',
     phone: '+1 (555) 100-0004'
   },
   {
@@ -72,10 +67,48 @@ const testUsers: TestUser[] = [
     role: 'accounting',
     firstName: 'Jennifer',
     lastName: 'Martinez',
-    profileId: '10000000-0000-0000-0000-000000000005',
     phone: '+1 (555) 100-0005'
   }
 ];
+
+// Helper function to get or create default school
+const getDefaultSchool = async () => {
+  try {
+    // First, try to find an existing default school
+    const { data: existingSchool, error: findError } = await supabase
+      .from('schools')
+      .select('id')
+      .eq('name', 'Default School')
+      .single();
+
+    if (!findError && existingSchool) {
+      return existingSchool.id;
+    }
+
+    // If no default school exists, create one
+    const { data: newSchool, error: createError } = await supabase
+      .from('schools')
+      .insert({
+        name: 'Default School',
+        address: '123 Education Street',
+        phone: '+1 (555) 123-4567',
+        email: 'admin@defaultschool.edu',
+        settings: {}
+      })
+      .select('id')
+      .single();
+
+    if (createError) {
+      throw createError;
+    }
+
+    return newSchool.id;
+  } catch (error) {
+    console.error('Error getting/creating default school:', error);
+    // Return a fallback UUID
+    return '11111111-1111-1111-1111-111111111111';
+  }
+};
 
 export const createTestAuthUsers = async () => {
   console.log('🚀 Creating test authentication users...');
@@ -94,6 +127,10 @@ export const createTestAuthUsers = async () => {
   
   const serviceSupabase = getServiceRoleClient();
   const results = [];
+  
+  // Get or create default school
+  const defaultSchoolId = await getDefaultSchool();
+  console.log(`📚 Using school ID: ${defaultSchoolId}`);
   
   for (const user of testUsers) {
     try {
@@ -127,36 +164,41 @@ export const createTestAuthUsers = async () => {
       console.log(`✅ Successfully created auth user for ${user.email}`);
       console.log(`   User ID: ${data.user.id}`);
       
-      // Update the user profile with the correct auth user ID
-      const { error: updateError } = await supabase
+      // Create user profile with proper UUID school_id
+      const { error: profileError } = await supabase
         .from('user_profiles')
-        .update({ 
+        .insert({
           id: data.user.id,
+          school_id: defaultSchoolId, // Using proper UUID
+          role: user.role as any,
+          first_name: user.firstName,
+          last_name: user.lastName,
+          email: user.email,
+          phone: user.phone,
+          is_active: true,
           metadata: {
-            ...((await supabase.from('user_profiles').select('metadata').eq('id', user.profileId).single()).data?.metadata || {}),
             auth_user_created: true,
             auth_user_id: data.user.id,
             temp_profile: false,
             auth_user_needed: false
           }
-        })
-        .eq('id', user.profileId);
+        });
 
-      if (updateError) {
-        console.error(`❌ Error updating profile for ${user.email}:`, updateError.message);
+      if (profileError) {
+        console.error(`❌ Error creating profile for ${user.email}:`, profileError.message);
         results.push({ 
           email: user.email, 
           success: false, 
-          error: `Auth user created but profile update failed: ${updateError.message}` 
+          error: `Auth user created but profile creation failed: ${profileError.message}` 
         });
       } else {
-        console.log(`✅ Profile updated for ${user.email}`);
+        console.log(`✅ Profile created for ${user.email}`);
         results.push({ 
           email: user.email, 
           success: true, 
           authId: data.user.id,
-          profileId: user.profileId,
-          message: 'Auth user created and profile linked successfully'
+          schoolId: defaultSchoolId,
+          message: 'Auth user and profile created successfully'
         });
       }
     } catch (error: any) {
@@ -174,22 +216,6 @@ export const createTestAuthUsers = async () => {
     }
   });
 
-  // If all users were created successfully, try to restore the foreign key constraint
-  const successCount = results.filter(r => r.success).length;
-  if (successCount === testUsers.length) {
-    try {
-      console.log('\n🔗 Attempting to restore foreign key constraint...');
-      const { error: fkError } = await supabase.rpc('restore_user_profiles_fk_constraint');
-      if (fkError) {
-        console.warn('⚠️ Could not restore foreign key constraint:', fkError.message);
-      } else {
-        console.log('✅ Foreign key constraint restored successfully');
-      }
-    } catch (error: any) {
-      console.warn('⚠️ Could not restore foreign key constraint:', error.message);
-    }
-  }
-
   return results;
 };
 
@@ -204,7 +230,7 @@ export const checkExistingUsers = async () => {
       // Check profile
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
-        .select('id, email, role, metadata')
+        .select('id, email, role, metadata, school_id')
         .eq('email', user.email)
         .single();
 
@@ -214,7 +240,7 @@ export const checkExistingUsers = async () => {
         continue;
       }
 
-      console.log(`✅ ${user.email} - Profile exists (ID: ${profile.id})`);
+      console.log(`✅ ${user.email} - Profile exists (ID: ${profile.id}, School: ${profile.school_id})`);
       
       // Check if auth user exists by trying to get user info
       try {

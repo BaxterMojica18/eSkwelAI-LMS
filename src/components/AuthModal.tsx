@@ -45,7 +45,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
     firstName: '',
     lastName: '',
     role: 'student',
-    schoolId: 'default-school-id', // You'll need to handle school selection
+    // Removed schoolId - will be handled automatically
     dateOfBirth: '',
     address: ''
   });
@@ -69,7 +69,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
       firstName: '',
       lastName: '',
       role: 'student',
-      schoolId: 'default-school-id',
       dateOfBirth: '',
       address: ''
     });

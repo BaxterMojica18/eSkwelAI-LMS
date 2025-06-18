@@ -15,7 +15,7 @@ export interface SignUpData {
   firstName: string;
   lastName: string;
   role: 'student' | 'teacher' | 'parent' | 'admin' | 'accounting' | 'developer';
-  schoolId: string;
+  schoolId?: string; // Made optional
   dateOfBirth?: string;
   address?: string;
 }
@@ -31,9 +31,52 @@ export interface ResetPasswordData {
 }
 
 class AuthService {
+  // Get or create default school
+  private async getDefaultSchool(): Promise<string> {
+    try {
+      // First, try to find an existing default school
+      const { data: existingSchool, error: findError } = await supabase
+        .from('schools')
+        .select('id')
+        .eq('name', 'Default School')
+        .single();
+
+      if (!findError && existingSchool) {
+        return existingSchool.id;
+      }
+
+      // If no default school exists, create one
+      const { data: newSchool, error: createError } = await supabase
+        .from('schools')
+        .insert({
+          name: 'Default School',
+          address: '123 Education Street',
+          phone: '+1 (555) 123-4567',
+          email: 'admin@defaultschool.edu',
+          settings: {}
+        })
+        .select('id')
+        .single();
+
+      if (createError) {
+        throw createError;
+      }
+
+      return newSchool.id;
+    } catch (error) {
+      console.error('Error getting/creating default school:', error);
+      // Fallback: generate a UUID for the school
+      const { data } = await supabase.rpc('gen_random_uuid');
+      return data || '11111111-1111-1111-1111-111111111111';
+    }
+  }
+
   // Sign up with email and password
   async signUp(data: SignUpData): Promise<{ user: any; profile: UserProfile | null; error: AuthError | null }> {
     try {
+      // Get or create default school
+      const schoolId = data.schoolId || await this.getDefaultSchool();
+
       // Create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
@@ -58,7 +101,7 @@ class AuthService {
       // Create user profile
       const profileData = {
         id: authData.user.id,
-        school_id: data.schoolId,
+        school_id: schoolId, // Now using a proper UUID
         role: data.role,
         first_name: data.firstName,
         last_name: data.lastName,
