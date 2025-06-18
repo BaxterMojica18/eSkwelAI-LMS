@@ -11,36 +11,44 @@ import {
   Info,
   AlertTriangle
 } from 'lucide-react';
-import { checkExistingUsers, testUsers } from '../utils/createTestUsers';
+import { supabase } from '../lib/supabase';
 
 const DevTools: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [checkResults, setCheckResults] = useState<any[]>([]);
-  const [showPasswords, setShowPasswords] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
-  const handleCheckUsers = async () => {
+  const testDatabaseConnection = async () => {
     setLoading(true);
-    setCheckResults([]);
+    setTestResult(null);
     
     try {
-      const checkResults = await checkExistingUsers();
-      setCheckResults(checkResults);
-    } catch (error) {
-      console.error('Error checking users:', error);
-      setCheckResults([{ email: 'System Error', profileExists: false, authExists: false, error: 'Unexpected error occurred' }]);
+      // Test basic database connection
+      const { data, error } = await supabase
+        .from('schools')
+        .select('count')
+        .limit(1);
+
+      if (error) {
+        setTestResult(`❌ Database Error: ${error.message}`);
+      } else {
+        setTestResult('✅ Database connection successful!');
+      }
+    } catch (error: any) {
+      setTestResult(`❌ Connection failed: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const copyCredentials = (email: string, password: string) => {
-    navigator.clipboard.writeText(`${email} / ${password}`);
-  };
-
-  const copyAllCredentials = () => {
-    const allCreds = testUsers.map(user => `${user.role}: ${user.email} / ${user.password}`).join('\n');
-    navigator.clipboard.writeText(allCreds);
+  const clearAuthSession = async () => {
+    try {
+      await supabase.auth.signOut();
+      setTestResult('✅ Auth session cleared');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error: any) {
+      setTestResult(`❌ Error clearing session: ${error.message}`);
+    }
   };
 
   if (!isVisible) {
@@ -71,125 +79,104 @@ const DevTools: React.FC = () => {
       </div>
 
       <div className="space-y-4">
-        {/* Manual Creation Notice */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        {/* Clean Signup Notice */}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
           <div className="flex items-start space-x-2">
-            <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-blue-800">
-              <p className="font-medium mb-1">Manual User Creation</p>
-              <p>Create test users manually in Supabase Dashboard using the credentials below.</p>
+            <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-green-800">
+              <p className="font-medium mb-1">Clean Signup System</p>
+              <p>Users can now register with email/password and choose their role during signup.</p>
             </div>
           </div>
         </div>
 
-        {/* User Status Check */}
+        {/* Database Test */}
         <div className="border border-gray-200 rounded-lg p-4">
           <h4 className="font-medium text-gray-900 mb-3 flex items-center space-x-2">
             <Database className="h-4 w-4" />
-            <span>User Status Check</span>
+            <span>Database Connection</span>
           </h4>
           
           <button
-            onClick={handleCheckUsers}
+            onClick={testDatabaseConnection}
             disabled={loading}
-            className="w-full bg-gray-600 text-white py-2 px-3 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 text-sm mb-4"
+            className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 text-sm mb-3"
           >
             {loading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Checking...</span>
+                <span>Testing...</span>
               </>
             ) : (
               <>
                 <Database className="h-4 w-4" />
-                <span>Check User Status</span>
+                <span>Test Connection</span>
               </>
             )}
           </button>
 
-          {/* Check Results */}
-          {checkResults.length > 0 && (
-            <div className="space-y-2">
-              <h5 className="text-sm font-medium text-gray-700">Status Check:</h5>
-              <div className="max-h-32 overflow-y-auto space-y-1">
-                {checkResults.map((result, index) => (
-                  <div key={index} className="flex items-center justify-between text-xs p-2 bg-gray-50 rounded">
-                    <span className="font-medium">{result.email}</span>
-                    <div className="flex items-center space-x-1">
-                      <span className={`px-1 rounded ${result.profileExists ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        Profile: {result.profileExists ? '✓' : '✗'}
-                      </span>
-                      <span className={`px-1 rounded ${
-                        result.authExists === true ? 'bg-green-100 text-green-700' : 
-                        result.authExists === false ? 'bg-red-100 text-red-700' : 
-                        'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        Auth: {result.authExists === true ? '✓' : result.authExists === false ? '✗' : '?'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {testResult && (
+            <div className="text-sm p-2 bg-gray-50 rounded border">
+              {testResult}
             </div>
           )}
         </div>
 
-        {/* Test Credentials */}
+        {/* Auth Management */}
         <div className="border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="font-medium text-gray-900">Test Credentials</h4>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={copyAllCredentials}
-                className="text-gray-600 hover:text-gray-800 text-xs"
-                title="Copy all credentials"
-              >
-                Copy All
-              </button>
-              <button
-                onClick={() => setShowPasswords(!showPasswords)}
-                className="text-gray-600 hover:text-gray-800"
-              >
-                {showPasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
+          <h4 className="font-medium text-gray-900 mb-3">Authentication</h4>
           
-          <div className="space-y-2 text-sm max-h-48 overflow-y-auto">
-            {testUsers.map((user, index) => (
-              <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 capitalize">{user.role}</div>
-                  <div className="text-gray-600 text-xs truncate">{user.email}</div>
-                  {showPasswords && (
-                    <div className="text-gray-500 font-mono text-xs">{user.password}</div>
-                  )}
-                </div>
-                <button
-                  onClick={() => copyCredentials(user.email, user.password)}
-                  className="text-gray-400 hover:text-gray-600 ml-2"
-                  title="Copy credentials"
-                >
-                  <Copy className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
+          <button
+            onClick={clearAuthSession}
+            className="w-full bg-red-600 text-white py-2 px-3 rounded-lg hover:bg-red-700 transition-colors text-sm"
+          >
+            Clear Auth Session
+          </button>
+        </div>
+
+        {/* Signup Instructions */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex items-start space-x-2">
+            <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <h5 className="text-sm font-medium text-blue-900 mb-1">How to Use:</h5>
+              <ol className="text-xs text-blue-800 space-y-1">
+                <li>1. Click "Login" in the header</li>
+                <li>2. Switch to "Create Account" tab</li>
+                <li>3. Fill in your details and choose your role</li>
+                <li>4. Sign up and start using the system</li>
+              </ol>
+            </div>
           </div>
         </div>
 
-        {/* Manual Creation Instructions */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-          <div className="flex items-start space-x-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <h5 className="text-sm font-medium text-amber-900 mb-1">Manual Setup Required:</h5>
-              <ol className="text-xs text-amber-800 space-y-1">
-                <li>1. Go to Supabase Dashboard → Authentication</li>
-                <li>2. Click "Add User" for each credential above</li>
-                <li>3. Use the exact email/password combinations</li>
-                <li>4. Set "Email Confirmed" to true</li>
-                <li>5. Test login using the Database User Checker</li>
-              </ol>
+        {/* Available Roles */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <h5 className="text-sm font-medium text-gray-900 mb-2">Available Roles:</h5>
+          <div className="grid grid-cols-2 gap-1 text-xs">
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+              <span>Developer</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span>Teacher</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Student</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+              <span>Parent</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+              <span>Admin</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+              <span>Accounting</span>
             </div>
           </div>
         </div>

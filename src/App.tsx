@@ -15,7 +15,6 @@ import {
   Mail,
   Phone,
   MapPin,
-  Code,
   Building,
   LogOut
 } from 'lucide-react';
@@ -217,7 +216,10 @@ function App() {
               >
                 Login
               </button>
-              <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              <button 
+                onClick={() => setShowAuthModal(true)}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
                 Get Started
               </button>
             </div>
@@ -266,15 +268,15 @@ function App() {
         </div>
       </section>
 
-      {/* Developer Access Notice */}
-      <section className="bg-purple-50 border-y border-purple-200 py-8">
+      {/* Registration Notice */}
+      <section className="bg-green-50 border-y border-green-200 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center space-x-4">
-            <Code className="h-8 w-8 text-purple-600" />
+            <UserCheck className="h-8 w-8 text-green-600" />
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-purple-900">Developer Access Available</h3>
-              <p className="text-purple-700">
-                Use <strong>developer@eskwelai.com</strong> / <strong>DevPass123!</strong> to access the developer console
+              <h3 className="text-lg font-semibold text-green-900">Open Registration Available</h3>
+              <p className="text-green-700">
+                Sign up now and choose your role: <strong>Student</strong>, <strong>Teacher</strong>, <strong>Parent</strong>, <strong>Admin</strong>, or <strong>Developer</strong>
               </p>
             </div>
           </div>
