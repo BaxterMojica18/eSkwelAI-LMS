@@ -15,19 +15,12 @@ import {
   Mail,
   Phone,
   MapPin,
-  Building,
-  LogOut
+  Building
 } from 'lucide-react';
-import TeacherDashboard from './components/TeacherDashboard';
-import DeveloperDashboard from './components/DeveloperDashboard';
-import AuthModal from './components/AuthModal';
-import DevTools from './components/DevTools';
-import DatabaseUserChecker from './components/DatabaseUserChecker';
-import { useAuth } from './hooks/useAuth';
+import AccountingDashboard from './components/AccountingDashboard';
 
 function App() {
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const { user, profile, loading, signOut, isAuthenticated, isTeacher, isDeveloper } = useAuth();
+  const [currentView, setCurrentView] = useState('landing'); // 'landing' or 'accounting'
 
   const features = [
     {
@@ -96,106 +89,12 @@ function App() {
     }
   ];
 
-  const handleAuthSuccess = (user: any, profile: any) => {
-    console.log('Authentication successful:', { user: user.id, profile: profile.role });
-  };
-
-  const handleSignOut = async () => {
-    const { error } = await signOut();
-    if (error) {
-      console.error('Sign out error:', error);
-    }
-  };
-
-  // Show loading spinner while checking authentication
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // If user is authenticated and is a developer, show developer dashboard
-  if (isAuthenticated && isDeveloper) {
-    return (
-      <>
-        <DeveloperDashboard />
-        <DevTools />
-      </>
-    );
-  }
-
-  // If user is authenticated and is a teacher, show teacher dashboard
-  if (isAuthenticated && isTeacher) {
-    return (
-      <>
-        <TeacherDashboard />
-        <DevTools />
-      </>
-    );
-  }
-
-  // If user is authenticated but not a teacher or developer, show appropriate dashboard
-  if (isAuthenticated && profile) {
-    return (
-      <>
-        <div className="min-h-screen bg-gray-50 p-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    Welcome, {profile.first_name} {profile.last_name}
-                  </h1>
-                  <p className="text-gray-600 capitalize">
-                    {profile.role} Dashboard
-                  </p>
-                </div>
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-red-600 transition-colors"
-                >
-                  <LogOut className="h-5 w-5" />
-                  <span>Sign Out</span>
-                </button>
-              </div>
-              
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <h2 className="text-xl font-semibold text-blue-900 mb-2">
-                  {profile.role === 'student' && 'Student Portal'}
-                  {profile.role === 'parent' && 'Parent Portal'}
-                  {profile.role === 'admin' && 'Administrator Dashboard'}
-                  {profile.role === 'accounting' && 'Accounting Dashboard'}
-                  {profile.role === 'developer' && 'Developer Console'}
-                </h2>
-                <p className="text-blue-700">
-                  Your personalized dashboard is being prepared. Full functionality will be available soon.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <DevTools />
-      </>
-    );
+  if (currentView === 'accounting') {
+    return <AccountingDashboard onBack={() => setCurrentView('landing')} />;
   }
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onSuccess={handleAuthSuccess}
-      />
-
-      {/* Dev Tools */}
-      <DevTools />
-
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -211,13 +110,13 @@ function App() {
             </nav>
             <div className="flex items-center space-x-4">
               <button 
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => setCurrentView('accounting')}
                 className="text-gray-600 hover:text-blue-600 transition-colors font-medium"
               >
-                Login
+                Accounting Demo
               </button>
               <button 
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => setCurrentView('accounting')}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Get Started
@@ -226,13 +125,6 @@ function App() {
           </div>
         </div>
       </header>
-
-      {/* Database User Checker */}
-      <section className="py-12 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <DatabaseUserChecker />
-        </div>
-      </section>
 
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-blue-50 via-white to-green-50 py-20">
@@ -254,30 +146,15 @@ function App() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => setCurrentView('accounting')}
                 className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 font-semibold flex items-center justify-center space-x-2"
               >
-                <span>Start Free Trial</span>
+                <span>Try Accounting Demo</span>
                 <ArrowRight className="h-5 w-5" />
               </button>
               <button className="border border-gray-300 text-gray-700 px-8 py-4 rounded-lg hover:bg-gray-50 transition-colors font-semibold">
                 Watch Demo
               </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Registration Notice */}
-      <section className="bg-green-50 border-y border-green-200 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center space-x-4">
-            <UserCheck className="h-8 w-8 text-green-600" />
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-green-900">Open Registration Available</h3>
-              <p className="text-green-700">
-                Sign up now and choose your role: <strong>Student</strong>, <strong>Teacher</strong>, <strong>Parent</strong>, <strong>Admin</strong>, or <strong>Developer</strong>
-              </p>
             </div>
           </div>
         </div>
@@ -497,10 +374,10 @@ function App() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button 
-              onClick={() => setShowAuthModal(true)}
+              onClick={() => setCurrentView('accounting')}
               className="bg-white text-blue-600 px-8 py-4 rounded-lg hover:bg-gray-100 transition-colors font-semibold"
             >
-              Start Free Trial
+              Try Accounting Demo
             </button>
             <button className="border-2 border-white text-white px-8 py-4 rounded-lg hover:bg-white hover:text-blue-600 transition-colors font-semibold">
               Schedule Demo
