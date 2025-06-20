@@ -22,6 +22,7 @@ import {
 import AccountingDashboard from './components/AccountingDashboard';
 import TeacherDashboard from './components/TeacherDashboard';
 import ParentDashboard from './components/ParentDashboard';
+import StudentDashboard from './components/StudentDashboard';
 import TempAuthSelector from './components/TempAuthSelector';
 import { useTempAuth } from './hooks/useTempAuth';
 
@@ -42,6 +43,9 @@ function App() {
           break;
         case 'parent':
           setCurrentView('parent');
+          break;
+        case 'student':
+          setCurrentView('student');
           break;
         default:
           setCurrentView('landing');
@@ -82,6 +86,8 @@ function App() {
         return <TeacherDashboard onSignOut={handleSignOut} />;
       case 'parent':
         return <ParentDashboard onSignOut={handleSignOut} />;
+      case 'student':
+        return <StudentDashboard onSignOut={handleSignOut} />;
       default:
         return <AccountingDashboard onSignOut={handleSignOut} />;
     }
@@ -237,11 +243,11 @@ function App() {
             <p className="text-lg text-gray-600 mb-6">
               Test all features without any setup! Click "Demo Login" to explore:
             </p>
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-4 gap-4">
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <Calculator className="h-8 w-8 text-red-600 mx-auto mb-2" />
                 <h3 className="font-semibold text-red-900">Accounting</h3>
-                <p className="text-sm text-red-700">Financial reports & payment tracking</p>
+                <p className="text-sm text-red-700">Financial reports & student enrollment</p>
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <GraduationCap className="h-8 w-8 text-blue-600 mx-auto mb-2" />
@@ -252,6 +258,11 @@ function App() {
                 <Users className="h-8 w-8 text-green-600 mx-auto mb-2" />
                 <h3 className="font-semibold text-green-900">Parent</h3>
                 <p className="text-sm text-green-700">Children's balances & payments</p>
+              </div>
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <BookOpen className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+                <h3 className="font-semibold text-purple-900">Student</h3>
+                <p className="text-sm text-purple-700">Enrollment & assessments</p>
               </div>
             </div>
             <div className="mt-6">

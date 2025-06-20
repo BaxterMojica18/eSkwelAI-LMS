@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 interface TempUser {
   id: string;
   email: string;
-  role: 'accounting' | 'teacher' | 'parent';
+  role: 'accounting' | 'teacher' | 'parent' | 'student';
   first_name: string;
   last_name: string;
   school_id: string;

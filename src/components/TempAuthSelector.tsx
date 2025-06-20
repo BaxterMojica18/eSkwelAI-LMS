@@ -4,6 +4,7 @@ import {
   Calculator, 
   Users, 
   GraduationCap,
+  BookOpen,
   X,
   LogIn
 } from 'lucide-react';
@@ -11,7 +12,7 @@ import {
 interface TempUser {
   id: string;
   email: string;
-  role: 'accounting' | 'teacher' | 'parent';
+  role: 'accounting' | 'teacher' | 'parent' | 'student';
   first_name: string;
   last_name: string;
   school_id: string;
@@ -50,6 +51,14 @@ const TempAuthSelector: React.FC<TempAuthSelectorProps> = ({ isOpen, onClose, on
       first_name: 'Jennifer',
       last_name: 'Smith',
       school_id: 'demo-school-1'
+    },
+    {
+      id: 'student-user',
+      email: 'student@demoschool.edu',
+      role: 'student',
+      first_name: 'Alex',
+      last_name: 'Johnson',
+      school_id: 'demo-school-1'
     }
   ];
 
@@ -58,6 +67,7 @@ const TempAuthSelector: React.FC<TempAuthSelectorProps> = ({ isOpen, onClose, on
       case 'accounting': return <Calculator className="h-6 w-6" />;
       case 'teacher': return <GraduationCap className="h-6 w-6" />;
       case 'parent': return <Users className="h-6 w-6" />;
+      case 'student': return <BookOpen className="h-6 w-6" />;
       default: return <User className="h-6 w-6" />;
     }
   };
@@ -67,6 +77,7 @@ const TempAuthSelector: React.FC<TempAuthSelectorProps> = ({ isOpen, onClose, on
       case 'accounting': return 'text-red-600 bg-red-100 border-red-200';
       case 'teacher': return 'text-blue-600 bg-blue-100 border-blue-200';
       case 'parent': return 'text-green-600 bg-green-100 border-green-200';
+      case 'student': return 'text-purple-600 bg-purple-100 border-purple-200';
       default: return 'text-gray-600 bg-gray-100 border-gray-200';
     }
   };
@@ -145,7 +156,7 @@ const TempAuthSelector: React.FC<TempAuthSelectorProps> = ({ isOpen, onClose, on
             <div className="space-y-2 text-sm text-gray-600">
               <div className="flex items-center space-x-2">
                 <Calculator className="h-4 w-4 text-red-600" />
-                <span><strong>Accounting:</strong> Financial reports, student balances, payment tracking</span>
+                <span><strong>Accounting:</strong> Student enrollment, financial reports, payment tracking</span>
               </div>
               <div className="flex items-center space-x-2">
                 <GraduationCap className="h-4 w-4 text-blue-600" />
@@ -154,6 +165,10 @@ const TempAuthSelector: React.FC<TempAuthSelectorProps> = ({ isOpen, onClose, on
               <div className="flex items-center space-x-2">
                 <Users className="h-4 w-4 text-green-600" />
                 <span><strong>Parent:</strong> Children's balances, payment history, due fees</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <BookOpen className="h-4 w-4 text-purple-600" />
+                <span><strong>Student:</strong> Subject enrollment, assessments, fee tracking</span>
               </div>
             </div>
           </div>
