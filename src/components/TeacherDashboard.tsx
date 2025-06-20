@@ -21,19 +21,18 @@ import {
   XCircle,
   AlertCircle,
   TrendingUp,
-  LogOut
+  LogOut,
+  QrCode,
+  GraduationCap
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../hooks/useAuth';
-import QREnrollmentManager from './QREnrollmentManager';
 
 interface Section {
   id: string;
   name: string;
-  school_levels?: {
-    name: string;
-  };
-  enrollments?: Array<{ id: string }>;
+  grade_level: string;
+  subject: string;
+  student_count: number;
+  school_year: string;
 }
 
 interface Assessment {
@@ -44,6 +43,7 @@ interface Assessment {
   is_published: boolean;
   total_points: number;
   created_at: string;
+  section_name: string;
 }
 
 interface LearningModule {
@@ -53,126 +53,175 @@ interface LearningModule {
   is_published: boolean;
   order_index: number;
   created_at: string;
+  section_name: string;
 }
 
-const TeacherDashboard: React.FC = () => {
-  const { profile, signOut } = useAuth();
+interface Student {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  section: string;
+  enrollment_date: string;
+  status: 'active' | 'inactive';
+}
+
+interface TeacherDashboardProps {
+  onSignOut: () => void;
+}
+
+const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onSignOut }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [sections, setSections] = useState<Section[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [modules, setModules] = useState<LearningModule[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalSections: 0,
-    totalStudents: 0,
-    totalAssessments: 0,
-    totalModules: 0
-  });
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(false);
 
+  // Sample data for demonstration
   useEffect(() => {
-    if (profile?.id) {
-      fetchTeacherData();
-    }
-  }, [profile?.id]);
+    generateSampleData();
+  }, []);
 
-  const fetchTeacherData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch sections taught by this teacher
-      const { data: sectionsData, error: sectionsError } = await supabase
-        .from('teacher_sections')
-        .select(`
-          section_id,
-          sections!inner (
-            id,
-            name,
-            school_levels (
-              name
-            )
-          )
-        `)
-        .eq('teacher_id', profile?.id)
-        .eq('school_year', new Date().getFullYear().toString());
-
-      if (sectionsError) throw sectionsError;
-
-      const sectionsList = sectionsData?.map(ts => ({
-        id: ts.sections.id,
-        name: ts.sections.name,
-        school_levels: ts.sections.school_levels
-      })) || [];
-
-      setSections(sectionsList);
-
-      // Get section IDs for further queries
-      const sectionIds = sectionsList.map(s => s.id);
-
-      if (sectionIds.length > 0) {
-        // Fetch assessments
-        const { data: assessmentsData, error: assessmentsError } = await supabase
-          .from('assessments')
-          .select('*')
-          .eq('teacher_id', profile?.id)
-          .in('section_id', sectionIds)
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        if (assessmentsError) throw assessmentsError;
-        setAssessments(assessmentsData || []);
-
-        // Fetch learning modules
-        const { data: modulesData, error: modulesError } = await supabase
-          .from('learning_modules')
-          .select('*')
-          .eq('teacher_id', profile?.id)
-          .in('section_id', sectionIds)
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        if (modulesError) throw modulesError;
-        setModules(modulesData || []);
-
-        // Fetch enrollment counts
-        const { data: enrollmentsData, error: enrollmentsError } = await supabase
-          .from('enrollments')
-          .select('section_id')
-          .in('section_id', sectionIds)
-          .eq('is_active', true);
-
-        if (enrollmentsError) throw enrollmentsError;
-
-        setStats({
-          totalSections: sectionsList.length,
-          totalStudents: enrollmentsData?.length || 0,
-          totalAssessments: assessmentsData?.length || 0,
-          totalModules: modulesData?.length || 0
-        });
+  const generateSampleData = () => {
+    // Sample sections
+    const sampleSections: Section[] = [
+      {
+        id: '1',
+        name: 'Grade 1-A',
+        grade_level: 'Grade 1',
+        subject: 'Mathematics',
+        student_count: 25,
+        school_year: '2025'
+      },
+      {
+        id: '2',
+        name: 'Grade 2-B',
+        grade_level: 'Grade 2',
+        subject: 'Science',
+        student_count: 22,
+        school_year: '2025'
+      },
+      {
+        id: '3',
+        name: 'Grade 3-A',
+        grade_level: 'Grade 3',
+        subject: 'English',
+        student_count: 28,
+        school_year: '2025'
       }
-    } catch (error) {
-      console.error('Error fetching teacher data:', error);
-    } finally {
-      setLoading(false);
-    }
+    ];
+
+    // Sample assessments
+    const sampleAssessments: Assessment[] = [
+      {
+        id: '1',
+        title: 'Math Quiz 1',
+        type: 'Quiz',
+        due_date: '2025-02-15',
+        is_published: true,
+        total_points: 100,
+        created_at: '2025-01-20',
+        section_name: 'Grade 1-A'
+      },
+      {
+        id: '2',
+        title: 'Science Test - Plants',
+        type: 'Test',
+        due_date: '2025-02-20',
+        is_published: true,
+        total_points: 150,
+        created_at: '2025-01-22',
+        section_name: 'Grade 2-B'
+      },
+      {
+        id: '3',
+        title: 'Reading Comprehension',
+        type: 'Assessment',
+        due_date: '2025-02-25',
+        is_published: false,
+        total_points: 80,
+        created_at: '2025-01-25',
+        section_name: 'Grade 3-A'
+      }
+    ];
+
+    // Sample learning modules
+    const sampleModules: LearningModule[] = [
+      {
+        id: '1',
+        title: 'Introduction to Numbers',
+        type: 'Video',
+        is_published: true,
+        order_index: 1,
+        created_at: '2025-01-15',
+        section_name: 'Grade 1-A'
+      },
+      {
+        id: '2',
+        title: 'Addition Basics',
+        type: 'PDF',
+        is_published: true,
+        order_index: 2,
+        created_at: '2025-01-18',
+        section_name: 'Grade 1-A'
+      },
+      {
+        id: '3',
+        title: 'Plant Parts',
+        type: 'Video',
+        is_published: true,
+        order_index: 1,
+        created_at: '2025-01-20',
+        section_name: 'Grade 2-B'
+      }
+    ];
+
+    // Sample students
+    const sampleStudents: Student[] = [
+      {
+        id: '1',
+        first_name: 'Emma',
+        last_name: 'Smith',
+        email: 'emma.smith@demoschool.edu',
+        section: 'Grade 1-A',
+        enrollment_date: '2025-01-15',
+        status: 'active'
+      },
+      {
+        id: '2',
+        first_name: 'James',
+        last_name: 'Smith',
+        email: 'james.smith@demoschool.edu',
+        section: 'Grade 2-B',
+        enrollment_date: '2025-01-15',
+        status: 'active'
+      },
+      {
+        id: '3',
+        first_name: 'Michael',
+        last_name: 'Johnson',
+        email: 'michael.johnson@demoschool.edu',
+        section: 'Grade 3-A',
+        enrollment_date: '2025-01-10',
+        status: 'active'
+      }
+    ];
+
+    setSections(sampleSections);
+    setAssessments(sampleAssessments);
+    setModules(sampleModules);
+    setStudents(sampleStudents);
   };
 
-  const handleSignOut = async () => {
-    const { error } = await signOut();
-    if (error) {
-      console.error('Sign out error:', error);
-    }
+  const stats = {
+    totalSections: sections.length,
+    totalStudents: students.length,
+    totalAssessments: assessments.length,
+    totalModules: modules.length,
+    publishedAssessments: assessments.filter(a => a.is_published).length,
+    publishedModules: modules.filter(m => m.is_published).length
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading teacher dashboard...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -181,14 +230,14 @@ const TeacherDashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
-              <BookOpen className="h-8 w-8 text-blue-600" />
+              <GraduationCap className="h-8 w-8 text-blue-600" />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Teacher Dashboard</h1>
-                <p className="text-sm text-gray-600">Welcome back, {profile?.first_name}!</p>
+                <p className="text-sm text-gray-600">Welcome back, Michael Davis!</p>
               </div>
             </div>
             <button
-              onClick={handleSignOut}
+              onClick={onSignOut}
               className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-red-600 transition-colors"
             >
               <LogOut className="h-5 w-5" />
@@ -207,7 +256,7 @@ const TeacherDashboard: React.FC = () => {
               { id: 'sections', label: 'My Classes', icon: Users },
               { id: 'assessments', label: 'Assessments', icon: FileText },
               { id: 'modules', label: 'Learning Modules', icon: BookOpen },
-              { id: 'qr-enrollment', label: 'QR Enrollment', icon: Users },
+              { id: 'qr-enrollment', label: 'QR Enrollment', icon: QrCode },
               { id: 'settings', label: 'Settings', icon: Settings }
             ].map((tab) => (
               <button
@@ -294,7 +343,7 @@ const TeacherDashboard: React.FC = () => {
                         <div key={assessment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
                             <h4 className="font-medium text-gray-900">{assessment.title}</h4>
-                            <p className="text-sm text-gray-600 capitalize">{assessment.type}</p>
+                            <p className="text-sm text-gray-600">{assessment.section_name} • {assessment.type}</p>
                           </div>
                           <div className="text-right">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -335,7 +384,7 @@ const TeacherDashboard: React.FC = () => {
                         <div key={module.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
                             <h4 className="font-medium text-gray-900">{module.title}</h4>
-                            <p className="text-sm text-gray-600 capitalize">{module.type}</p>
+                            <p className="text-sm text-gray-600">{module.section_name} • {module.type}</p>
                           </div>
                           <div className="text-right">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -376,17 +425,17 @@ const TeacherDashboard: React.FC = () => {
                   <div className="space-y-4">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">{section.name}</h3>
-                      <p className="text-gray-600">{section.school_levels?.name}</p>
+                      <p className="text-gray-600">{section.subject}</p>
                     </div>
 
                     <div className="flex items-center space-x-4 text-sm text-gray-600">
                       <div className="flex items-center space-x-1">
                         <Users className="h-4 w-4" />
-                        <span>0 students</span>
+                        <span>{section.student_count} students</span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <Calendar className="h-4 w-4" />
-                        <span>2025</span>
+                        <span>{section.school_year}</span>
                       </div>
                     </div>
 
@@ -438,6 +487,9 @@ const TeacherDashboard: React.FC = () => {
                         Assessment
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Class
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Type
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -461,7 +513,10 @@ const TeacherDashboard: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="capitalize text-sm text-gray-900">{assessment.type}</span>
+                          <span className="text-sm text-gray-900">{assessment.section_name}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-900">{assessment.type}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -524,11 +579,12 @@ const TeacherDashboard: React.FC = () => {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">{module.title}</h3>
+                        <p className="text-sm text-gray-600 mb-2">{module.section_name}</p>
                         <div className="flex items-center space-x-2">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            module.type === 'video' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                            module.type === 'Video' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
                           }`}>
-                            {module.type.toUpperCase()}
+                            {module.type}
                           </span>
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             module.is_published ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
@@ -573,7 +629,22 @@ const TeacherDashboard: React.FC = () => {
 
         {/* QR Enrollment Tab */}
         {activeTab === 'qr-enrollment' && (
-          <QREnrollmentManager />
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-900">QR Code Enrollment</h2>
+            
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+              <div className="text-center">
+                <QrCode className="h-16 w-16 text-blue-600 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-gray-900 mb-2">QR Code Management</h3>
+                <p className="text-gray-600 mb-6">
+                  Generate QR codes for students to easily join your classes
+                </p>
+                <button className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+                  Create QR Code
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Settings Tab */}
@@ -591,7 +662,7 @@ const TeacherDashboard: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      value={profile?.first_name || ''}
+                      value="Michael"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       readOnly
                     />
@@ -602,7 +673,7 @@ const TeacherDashboard: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      value={profile?.last_name || ''}
+                      value="Davis"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       readOnly
                     />
@@ -614,7 +685,7 @@ const TeacherDashboard: React.FC = () => {
                   </label>
                   <input
                     type="email"
-                    value={profile?.email || ''}
+                    value="teacher@demoschool.edu"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     readOnly
                   />
@@ -625,7 +696,7 @@ const TeacherDashboard: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    value={profile?.role || ''}
+                    value="Teacher"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent capitalize"
                     readOnly
                   />

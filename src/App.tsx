@@ -22,15 +22,11 @@ import {
 import AccountingDashboard from './components/AccountingDashboard';
 import TeacherDashboard from './components/TeacherDashboard';
 import ParentDashboard from './components/ParentDashboard';
-import DeveloperDashboard from './components/DeveloperDashboard';
-import StudentQREnrollment from './components/StudentQREnrollment';
-import AuthModal from './components/AuthModal';
-import DatabaseUserChecker from './components/DatabaseUserChecker';
-import DevTools from './components/DevTools';
-import { useAuth } from './hooks/useAuth';
+import TempAuthSelector from './components/TempAuthSelector';
+import { useTempAuth } from './hooks/useTempAuth';
 
 function App() {
-  const { user, profile, loading, isAuthenticated } = useAuth();
+  const { user, profile, loading, isAuthenticated, signIn, signOut } = useTempAuth();
   const [currentView, setCurrentView] = useState('landing');
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -47,15 +43,6 @@ function App() {
         case 'parent':
           setCurrentView('parent');
           break;
-        case 'developer':
-          setCurrentView('developer');
-          break;
-        case 'student':
-          setCurrentView('student');
-          break;
-        case 'admin':
-          setCurrentView('admin');
-          break;
         default:
           setCurrentView('landing');
       }
@@ -64,9 +51,14 @@ function App() {
     }
   }, [isAuthenticated, profile]);
 
-  const handleAuthSuccess = (user: any, profile: any) => {
+  const handleUserSelect = async (userData: any) => {
+    await signIn(userData);
     setShowAuthModal(false);
-    // The useEffect above will handle the redirect
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    setCurrentView('landing');
   };
 
   // Show loading screen while checking authentication
@@ -85,24 +77,13 @@ function App() {
   if (isAuthenticated && profile) {
     switch (currentView) {
       case 'accounting':
-        return <AccountingDashboard />;
+        return <AccountingDashboard onSignOut={handleSignOut} />;
       case 'teacher':
-        return <TeacherDashboard />;
+        return <TeacherDashboard onSignOut={handleSignOut} />;
       case 'parent':
-        return <ParentDashboard />;
-      case 'developer':
-        return <DeveloperDashboard />;
-      case 'student':
-        return <StudentQREnrollment />;
-      case 'admin':
-        return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Admin Dashboard</h1>
-            <p className="text-gray-600">Coming soon...</p>
-          </div>
-        </div>;
+        return <ParentDashboard onSignOut={handleSignOut} />;
       default:
-        return <AccountingDashboard />;
+        return <AccountingDashboard onSignOut={handleSignOut} />;
     }
   }
 
@@ -194,13 +175,13 @@ function App() {
                 className="text-gray-600 hover:text-blue-600 transition-colors font-medium flex items-center space-x-2"
               >
                 <LogIn className="h-5 w-5" />
-                <span>Login</span>
+                <span>Demo Login</span>
               </button>
               <button 
                 onClick={() => setShowAuthModal(true)}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Get Started
+                Try Demo
               </button>
             </div>
           </div>
@@ -241,18 +222,47 @@ function App() {
         </div>
       </section>
 
-      {/* Database Users Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              System Status
+      {/* Demo Notice */}
+      <section className="py-12 bg-gradient-to-r from-green-50 to-blue-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="bg-white rounded-2xl shadow-lg p-8 border border-green-200">
+            <div className="flex items-center justify-center mb-4">
+              <div className="bg-green-100 p-3 rounded-full">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              🎯 Demo Mode Active
             </h2>
-            <p className="text-xl text-gray-600">
-              Current registered users and system health
+            <p className="text-lg text-gray-600 mb-6">
+              Test all features without any setup! Click "Demo Login" to explore:
             </p>
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <Calculator className="h-8 w-8 text-red-600 mx-auto mb-2" />
+                <h3 className="font-semibold text-red-900">Accounting</h3>
+                <p className="text-sm text-red-700">Financial reports & payment tracking</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <GraduationCap className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                <h3 className="font-semibold text-blue-900">Teacher</h3>
+                <p className="text-sm text-blue-700">Class management & assessments</p>
+              </div>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <Users className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                <h3 className="font-semibold text-green-900">Parent</h3>
+                <p className="text-sm text-green-700">Children's balances & payments</p>
+              </div>
+            </div>
+            <div className="mt-6">
+              <button 
+                onClick={() => setShowAuthModal(true)}
+                className="bg-gradient-to-r from-blue-600 to-green-600 text-white px-8 py-3 rounded-lg hover:from-blue-700 hover:to-green-700 transition-all font-semibold"
+              >
+                Start Testing Now →
+              </button>
+            </div>
           </div>
-          <DatabaseUserChecker />
         </div>
       </section>
 
@@ -541,14 +551,11 @@ function App() {
       </footer>
 
       {/* Auth Modal */}
-      <AuthModal
+      <TempAuthSelector
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
-        onSuccess={handleAuthSuccess}
+        onSelectUser={handleUserSelect}
       />
-
-      {/* Dev Tools */}
-      <DevTools />
     </div>
   );
 }
