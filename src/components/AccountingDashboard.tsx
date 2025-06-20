@@ -414,7 +414,7 @@ Thank you! We have received your payment for {{student_name}}.
 
 Payment Details:
 - Description: {{fee_description}}
-- Amount: ${{amount}}
+- Amount: {{amount}}
 - Payment Date: {{payment_date}}
 - Transaction ID: {{transaction_id}}
 - Payment Method: {{payment_method}}
@@ -440,7 +440,7 @@ We hope this message finds you well. We wanted to inform you about an upcoming e
 Exam Details:
 - Exam: {{exam_name}}
 - Date: {{exam_date}}
-- Fee: ${{exam_fee}}
+- Fee: {{exam_fee}}
 - Payment Due: {{payment_due_date}}
 
 This fee covers exam materials, processing, and certification. Please ensure payment is made by the due date so {{student_name}} can participate in the exam.
@@ -463,12 +463,12 @@ We notice that a payment for {{student_name}} is now overdue. Please address thi
 
 Overdue Payment Details:
 - Description: {{fee_description}}
-- Amount: ${{amount}}
+- Amount: {{amount}}
 - Original Due Date: {{due_date}}
 - Days Overdue: {{days_overdue}}
-- Late Fee: ${{late_fee}}
+- Late Fee: {{late_fee}}
 
-Total Amount Due: ${{total_due}}
+Total Amount Due: {{total_due}}
 
 Please contact our office immediately at (555) 123-4567 to arrange payment or discuss payment options.
 
