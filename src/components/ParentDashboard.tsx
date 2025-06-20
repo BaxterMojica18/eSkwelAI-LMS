@@ -26,8 +26,6 @@ import {
   Mail,
   MapPin
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../hooks/useAuth';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -38,19 +36,14 @@ interface Student {
   email: string;
   phone: string | null;
   profile_image_url: string | null;
-  enrollments?: Array<{
-    sections: {
-      name: string;
-      school_levels: {
-        name: string;
-      };
-    };
-  }>;
+  grade_level: string;
+  section: string;
 }
 
 interface Payment {
   id: string;
   student_id: string;
+  student_name: string;
   amount: number;
   currency: string;
   description: string;
@@ -63,10 +56,6 @@ interface Payment {
   notes: string | null;
   created_at: string;
   updated_at: string;
-  student?: {
-    first_name: string;
-    last_name: string;
-  };
 }
 
 interface StudentBalance {
@@ -87,8 +76,11 @@ interface StudentBalance {
   };
 }
 
-const ParentDashboard: React.FC = () => {
-  const { profile, signOut } = useAuth();
+interface ParentDashboardProps {
+  onSignOut: () => void;
+}
+
+const ParentDashboard: React.FC<ParentDashboardProps> = ({ onSignOut }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [students, setStudents] = useState<Student[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -100,78 +92,230 @@ const ParentDashboard: React.FC = () => {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
   useEffect(() => {
-    if (profile?.id) {
-      fetchParentData();
-    }
-  }, [profile?.id]);
+    generateSampleData();
+  }, []);
 
-  const fetchParentData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch children (students) of this parent
-      const { data: relationships, error: relationshipError } = await supabase
-        .from('parent_student_relationships')
-        .select(`
-          student_id,
-          user_profiles!parent_student_relationships_student_id_fkey (
-            id,
-            first_name,
-            last_name,
-            email,
-            phone,
-            profile_image_url,
-            enrollments (
-              sections (
-                name,
-                school_levels (
-                  name
-                )
-              )
-            )
-          )
-        `)
-        .eq('parent_id', profile?.id);
-
-      if (relationshipError) throw relationshipError;
-
-      const studentData = relationships?.map(rel => (rel as any).user_profiles).filter(Boolean) || [];
-      setStudents(studentData);
-
-      if (studentData.length > 0) {
-        const studentIds = studentData.map(s => s.id);
-        
-        // Fetch payments for all children
-        const { data: paymentsData, error: paymentsError } = await supabase
-          .from('payments')
-          .select(`
-            *,
-            user_profiles!payments_student_id_fkey (
-              first_name,
-              last_name
-            )
-          `)
-          .in('student_id', studentIds)
-          .order('created_at', { ascending: false });
-
-        if (paymentsError) throw paymentsError;
-        setPayments(paymentsData || []);
-
-        // Calculate balances for each student
-        const balanceData = await calculateStudentBalances(studentIds, paymentsData || []);
-        setBalances(balanceData);
+  const generateSampleData = () => {
+    // Sample students (children of the parent)
+    const sampleStudents: Student[] = [
+      {
+        id: '1',
+        first_name: 'Emma',
+        last_name: 'Smith',
+        email: 'emma.smith@demoschool.edu',
+        phone: null,
+        profile_image_url: null,
+        grade_level: 'Grade 1',
+        section: 'A'
+      },
+      {
+        id: '2',
+        first_name: 'James',
+        last_name: 'Smith',
+        email: 'james.smith@demoschool.edu',
+        phone: null,
+        profile_image_url: null,
+        grade_level: 'Grade 2',
+        section: 'B'
       }
-    } catch (error) {
-      console.error('Error fetching parent data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    ];
 
-  const calculateStudentBalances = async (studentIds: string[], paymentsData: Payment[]): Promise<StudentBalance[]> => {
-    return studentIds.map(studentId => {
-      const student = students.find(s => s.id === studentId);
-      const studentPayments = paymentsData.filter(p => p.student_id === studentId);
+    // Sample payments for both children
+    const samplePayments: Payment[] = [
+      // Emma's payments
+      {
+        id: '1',
+        student_id: '1',
+        student_name: 'Emma Smith',
+        amount: 500.00,
+        currency: 'USD',
+        description: 'First Quarter Tuition Fee',
+        payment_type: 'Tuition',
+        status: 'paid',
+        due_date: '2025-01-15',
+        paid_date: '2025-01-10',
+        payment_method: 'Credit Card',
+        transaction_id: 'TXN001',
+        notes: 'Paid in full',
+        created_at: '2025-01-01',
+        updated_at: '2025-01-10'
+      },
+      {
+        id: '2',
+        student_id: '1',
+        student_name: 'Emma Smith',
+        amount: 150.00,
+        currency: 'USD',
+        description: 'Mathematics Textbook',
+        payment_type: 'Books',
+        status: 'pending',
+        due_date: '2025-02-01',
+        paid_date: null,
+        payment_method: null,
+        transaction_id: null,
+        notes: 'Required textbook for Grade 1',
+        created_at: '2025-01-15',
+        updated_at: '2025-01-15'
+      },
+      {
+        id: '3',
+        student_id: '1',
+        student_name: 'Emma Smith',
+        amount: 75.00,
+        currency: 'USD',
+        description: 'Art Supplies Fee',
+        payment_type: 'Miscellaneous',
+        status: 'pending',
+        due_date: '2025-02-15',
+        paid_date: null,
+        payment_method: null,
+        transaction_id: null,
+        notes: 'Art class materials',
+        created_at: '2025-01-20',
+        updated_at: '2025-01-20'
+      },
+      {
+        id: '4',
+        student_id: '1',
+        student_name: 'Emma Smith',
+        amount: 200.00,
+        currency: 'USD',
+        description: 'Science Museum Field Trip',
+        payment_type: 'School Trip',
+        status: 'overdue',
+        due_date: '2025-01-20',
+        paid_date: null,
+        payment_method: null,
+        transaction_id: null,
+        notes: 'Educational field trip',
+        created_at: '2025-01-05',
+        updated_at: '2025-01-05'
+      },
+      {
+        id: '5',
+        student_id: '1',
+        student_name: 'Emma Smith',
+        amount: 500.00,
+        currency: 'USD',
+        description: 'Second Quarter Tuition Fee',
+        payment_type: 'Tuition',
+        status: 'pending',
+        due_date: '2025-04-01',
+        paid_date: null,
+        payment_method: null,
+        transaction_id: null,
+        notes: 'Q2 tuition payment',
+        created_at: '2025-01-25',
+        updated_at: '2025-01-25'
+      },
+      // James's payments
+      {
+        id: '6',
+        student_id: '2',
+        student_name: 'James Smith',
+        amount: 500.00,
+        currency: 'USD',
+        description: 'First Quarter Tuition Fee',
+        payment_type: 'Tuition',
+        status: 'paid',
+        due_date: '2025-01-15',
+        paid_date: '2025-01-12',
+        payment_method: 'Bank Transfer',
+        transaction_id: 'TXN002',
+        notes: 'Paid via online banking',
+        created_at: '2025-01-01',
+        updated_at: '2025-01-12'
+      },
+      {
+        id: '7',
+        student_id: '2',
+        student_name: 'James Smith',
+        amount: 125.00,
+        currency: 'USD',
+        description: 'Science Workbook Set',
+        payment_type: 'Books',
+        status: 'paid',
+        due_date: '2025-01-25',
+        paid_date: '2025-01-20',
+        payment_method: 'Credit Card',
+        transaction_id: 'TXN003',
+        notes: 'Grade 2 science materials',
+        created_at: '2025-01-10',
+        updated_at: '2025-01-20'
+      },
+      {
+        id: '8',
+        student_id: '2',
+        student_name: 'James Smith',
+        amount: 50.00,
+        currency: 'USD',
+        description: 'Library Late Fee',
+        payment_type: 'Miscellaneous',
+        status: 'pending',
+        due_date: '2025-02-10',
+        paid_date: null,
+        payment_method: null,
+        transaction_id: null,
+        notes: 'Overdue book charges',
+        created_at: '2025-01-18',
+        updated_at: '2025-01-18'
+      },
+      {
+        id: '9',
+        student_id: '2',
+        student_name: 'James Smith',
+        amount: 300.00,
+        currency: 'USD',
+        description: 'Year-end Graduation Ceremony',
+        payment_type: 'Prom',
+        status: 'pending',
+        due_date: '2025-06-01',
+        paid_date: null,
+        payment_method: null,
+        transaction_id: null,
+        notes: 'Graduation celebration event',
+        created_at: '2025-01-22',
+        updated_at: '2025-01-22'
+      },
+      {
+        id: '10',
+        student_id: '2',
+        student_name: 'James Smith',
+        amount: 500.00,
+        currency: 'USD',
+        description: 'Second Quarter Tuition Fee',
+        payment_type: 'Tuition',
+        status: 'pending',
+        due_date: '2025-04-01',
+        paid_date: null,
+        payment_method: null,
+        transaction_id: null,
+        notes: 'Q2 tuition payment',
+        created_at: '2025-01-25',
+        updated_at: '2025-01-25'
+      },
+      {
+        id: '11',
+        student_id: '2',
+        student_name: 'James Smith',
+        amount: 180.00,
+        currency: 'USD',
+        description: 'Zoo Educational Visit',
+        payment_type: 'School Trip',
+        status: 'pending',
+        due_date: '2025-03-15',
+        paid_date: null,
+        payment_method: null,
+        transaction_id: null,
+        notes: 'Biology field trip to city zoo',
+        created_at: '2025-01-28',
+        updated_at: '2025-01-28'
+      }
+    ];
+
+    // Calculate balances for each student
+    const studentBalances: StudentBalance[] = sampleStudents.map(student => {
+      const studentPayments = samplePayments.filter(p => p.student_id === student.id);
       
       const totalDue = studentPayments
         .filter(p => p.status === 'pending' || p.status === 'overdue')
@@ -195,17 +339,17 @@ const ParentDashboard: React.FC = () => {
 
       // Calculate breakdown by payment type
       const breakdown = {
-        tuition: studentPayments.filter(p => p.payment_type.toLowerCase().includes('tuition')).reduce((sum, p) => p.status !== 'paid' ? sum + p.amount : sum, 0),
-        books: studentPayments.filter(p => p.payment_type.toLowerCase().includes('book')).reduce((sum, p) => p.status !== 'paid' ? sum + p.amount : sum, 0),
-        miscellaneous: studentPayments.filter(p => p.payment_type.toLowerCase().includes('misc')).reduce((sum, p) => p.status !== 'paid' ? sum + p.amount : sum, 0),
-        school_trip: studentPayments.filter(p => p.payment_type.toLowerCase().includes('trip')).reduce((sum, p) => p.status !== 'paid' ? sum + p.amount : sum, 0),
-        prom: studentPayments.filter(p => p.payment_type.toLowerCase().includes('prom')).reduce((sum, p) => p.status !== 'paid' ? sum + p.amount : sum, 0),
-        other: studentPayments.filter(p => !['tuition', 'book', 'misc', 'trip', 'prom'].some(type => p.payment_type.toLowerCase().includes(type))).reduce((sum, p) => p.status !== 'paid' ? sum + p.amount : sum, 0)
+        tuition: studentPayments.filter(p => p.payment_type.toLowerCase().includes('tuition') && p.status !== 'paid').reduce((sum, p) => sum + p.amount, 0),
+        books: studentPayments.filter(p => p.payment_type.toLowerCase().includes('book') && p.status !== 'paid').reduce((sum, p) => sum + p.amount, 0),
+        miscellaneous: studentPayments.filter(p => p.payment_type.toLowerCase().includes('misc') && p.status !== 'paid').reduce((sum, p) => sum + p.amount, 0),
+        school_trip: studentPayments.filter(p => p.payment_type.toLowerCase().includes('trip') && p.status !== 'paid').reduce((sum, p) => sum + p.amount, 0),
+        prom: studentPayments.filter(p => p.payment_type.toLowerCase().includes('prom') && p.status !== 'paid').reduce((sum, p) => sum + p.amount, 0),
+        other: studentPayments.filter(p => !['tuition', 'book', 'misc', 'trip', 'prom'].some(type => p.payment_type.toLowerCase().includes(type)) && p.status !== 'paid').reduce((sum, p) => sum + p.amount, 0)
       };
 
       return {
-        student_id: studentId,
-        student_name: student ? `${student.first_name} ${student.last_name}` : 'Unknown',
+        student_id: student.id,
+        student_name: `${student.first_name} ${student.last_name}`,
         total_due: totalDue,
         overdue_amount: overdueAmount,
         paid_amount: paidAmount,
@@ -214,6 +358,11 @@ const ParentDashboard: React.FC = () => {
         payment_breakdown: breakdown
       };
     });
+
+    setStudents(sampleStudents);
+    setPayments(samplePayments);
+    setBalances(studentBalances);
+    setLoading(false);
   };
 
   const getPaymentTypeIcon = (type: string) => {
@@ -239,7 +388,7 @@ const ParentDashboard: React.FC = () => {
   const filteredPayments = payments.filter(payment => {
     const matchesSearch = payment.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          payment.payment_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (payment.student?.first_name + ' ' + payment.student?.last_name).toLowerCase().includes(searchTerm.toLowerCase());
+                         payment.student_name.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
     
@@ -266,7 +415,7 @@ const ParentDashboard: React.FC = () => {
     
     // Add parent info
     doc.setFontSize(12);
-    doc.text(`Parent: ${profile?.first_name} ${profile?.last_name}`, 20, 35);
+    doc.text('Parent: Jennifer Smith', 20, 35);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 45);
     
     // Add table
@@ -347,7 +496,7 @@ const ParentDashboard: React.FC = () => {
         <body>
           <h1>${title}</h1>
           <div class="info">
-            <p><strong>Parent:</strong> ${profile?.first_name} ${profile?.last_name}</p>
+            <p><strong>Parent:</strong> Jennifer Smith</p>
             <p><strong>Generated:</strong> ${new Date().toLocaleDateString()}</p>
           </div>
           <table>
@@ -364,13 +513,6 @@ const ParentDashboard: React.FC = () => {
     
     printWindow.document.close();
     printWindow.print();
-  };
-
-  const handleSignOut = async () => {
-    const { error } = await signOut();
-    if (error) {
-      console.error('Sign out error:', error);
-    }
   };
 
   if (loading) {
@@ -394,19 +536,19 @@ const ParentDashboard: React.FC = () => {
               <Users className="h-8 w-8 text-blue-600" />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Parent Portal</h1>
-                <p className="text-sm text-gray-600">Welcome back, {profile?.first_name}!</p>
+                <p className="text-sm text-gray-600">Welcome back, Jennifer!</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               <button
-                onClick={fetchParentData}
+                onClick={generateSampleData}
                 className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                 title="Refresh data"
               >
                 <RefreshCw className="h-5 w-5" />
               </button>
               <button
-                onClick={handleSignOut}
+                onClick={onSignOut}
                 className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-red-600 transition-colors"
               >
                 <LogOut className="h-5 w-5" />
@@ -518,16 +660,12 @@ const ParentDashboard: React.FC = () => {
                           </div>
                         </div>
 
-                        {student.enrollments && student.enrollments.length > 0 && (
-                          <div className="mb-4">
-                            <p className="text-sm font-medium text-gray-700 mb-1">Current Enrollment:</p>
-                            {student.enrollments.map((enrollment, idx) => (
-                              <p key={idx} className="text-sm text-gray-600">
-                                {enrollment.sections.school_levels.name} - {enrollment.sections.name}
-                              </p>
-                            ))}
-                          </div>
-                        )}
+                        <div className="mb-4">
+                          <p className="text-sm font-medium text-gray-700 mb-1">Current Enrollment:</p>
+                          <p className="text-sm text-gray-600">
+                            {student.grade_level} - Section {student.section}
+                          </p>
+                        </div>
 
                         {balance && (
                           <div className="space-y-2">
@@ -685,7 +823,7 @@ const ParentDashboard: React.FC = () => {
                     filteredPayments,
                     'Payment History',
                     ['Student', 'Description', 'Type', 'Amount', 'Status', 'Due Date', 'Paid Date', 'Method'],
-                    ['student.first_name', 'description', 'payment_type', 'amount', 'status', 'due_date', 'paid_date', 'payment_method']
+                    ['student_name', 'description', 'payment_type', 'amount', 'status', 'due_date', 'paid_date', 'payment_method']
                   )}
                   className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
                 >
@@ -697,7 +835,7 @@ const ParentDashboard: React.FC = () => {
                     filteredPayments,
                     'Payment_History',
                     ['Student', 'Description', 'Type', 'Amount', 'Status', 'Due Date', 'Paid Date', 'Method'],
-                    ['student.first_name', 'description', 'payment_type', 'amount', 'status', 'due_date', 'paid_date', 'payment_method']
+                    ['student_name', 'description', 'payment_type', 'amount', 'status', 'due_date', 'paid_date', 'payment_method']
                   )}
                   className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
                 >
@@ -709,7 +847,7 @@ const ParentDashboard: React.FC = () => {
                     filteredPayments,
                     'Payment History',
                     ['Student', 'Description', 'Type', 'Amount', 'Status', 'Due Date', 'Paid Date', 'Method'],
-                    ['student.first_name', 'description', 'payment_type', 'amount', 'status', 'due_date', 'paid_date', 'payment_method']
+                    ['student_name', 'description', 'payment_type', 'amount', 'status', 'due_date', 'paid_date', 'payment_method']
                   )}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
                 >
@@ -821,7 +959,7 @@ const ParentDashboard: React.FC = () => {
                       <tr key={payment.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
-                            {payment.student?.first_name} {payment.student?.last_name}
+                            {payment.student_name}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -881,7 +1019,7 @@ const ParentDashboard: React.FC = () => {
                       duePayments,
                       'Due Fees Report',
                       ['Student', 'Description', 'Type', 'Amount', 'Status', 'Due Date', 'Days Overdue'],
-                      ['student.first_name', 'description', 'payment_type', 'amount', 'status', 'due_date', 'days_overdue']
+                      ['student_name', 'description', 'payment_type', 'amount', 'status', 'due_date', 'days_overdue']
                     );
                   }}
                   className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
@@ -896,7 +1034,7 @@ const ParentDashboard: React.FC = () => {
                       duePayments,
                       'Due_Fees_Report',
                       ['Student', 'Description', 'Type', 'Amount', 'Status', 'Due Date', 'Days Overdue'],
-                      ['student.first_name', 'description', 'payment_type', 'amount', 'status', 'due_date', 'days_overdue']
+                      ['student_name', 'description', 'payment_type', 'amount', 'status', 'due_date', 'days_overdue']
                     );
                   }}
                   className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
@@ -911,7 +1049,7 @@ const ParentDashboard: React.FC = () => {
                       duePayments,
                       'Due Fees Report',
                       ['Student', 'Description', 'Type', 'Amount', 'Status', 'Due Date', 'Days Overdue'],
-                      ['student.first_name', 'description', 'payment_type', 'amount', 'status', 'due_date', 'days_overdue']
+                      ['student_name', 'description', 'payment_type', 'amount', 'status', 'due_date', 'days_overdue']
                     );
                   }}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
