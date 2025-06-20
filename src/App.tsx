@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   GraduationCap, 
   Users, 
@@ -15,12 +15,96 @@ import {
   Mail,
   Phone,
   MapPin,
-  Building
+  Building,
+  User,
+  LogIn
 } from 'lucide-react';
 import AccountingDashboard from './components/AccountingDashboard';
+import TeacherDashboard from './components/TeacherDashboard';
+import ParentDashboard from './components/ParentDashboard';
+import DeveloperDashboard from './components/DeveloperDashboard';
+import StudentQREnrollment from './components/StudentQREnrollment';
+import AuthModal from './components/AuthModal';
+import DatabaseUserChecker from './components/DatabaseUserChecker';
+import DevTools from './components/DevTools';
+import { useAuth } from './hooks/useAuth';
 
 function App() {
-  const [currentView, setCurrentView] = useState('landing'); // 'landing' or 'accounting'
+  const { user, profile, loading, isAuthenticated } = useAuth();
+  const [currentView, setCurrentView] = useState('landing');
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Redirect based on user role when authenticated
+  useEffect(() => {
+    if (isAuthenticated && profile) {
+      switch (profile.role) {
+        case 'accounting':
+          setCurrentView('accounting');
+          break;
+        case 'teacher':
+          setCurrentView('teacher');
+          break;
+        case 'parent':
+          setCurrentView('parent');
+          break;
+        case 'developer':
+          setCurrentView('developer');
+          break;
+        case 'student':
+          setCurrentView('student');
+          break;
+        case 'admin':
+          setCurrentView('admin');
+          break;
+        default:
+          setCurrentView('landing');
+      }
+    } else {
+      setCurrentView('landing');
+    }
+  }, [isAuthenticated, profile]);
+
+  const handleAuthSuccess = (user: any, profile: any) => {
+    setShowAuthModal(false);
+    // The useEffect above will handle the redirect
+  };
+
+  // Show loading screen while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Role-based dashboard routing
+  if (isAuthenticated && profile) {
+    switch (currentView) {
+      case 'accounting':
+        return <AccountingDashboard />;
+      case 'teacher':
+        return <TeacherDashboard />;
+      case 'parent':
+        return <ParentDashboard />;
+      case 'developer':
+        return <DeveloperDashboard />;
+      case 'student':
+        return <StudentQREnrollment />;
+      case 'admin':
+        return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Admin Dashboard</h1>
+            <p className="text-gray-600">Coming soon...</p>
+          </div>
+        </div>;
+      default:
+        return <AccountingDashboard />;
+    }
+  }
 
   const features = [
     {
@@ -89,10 +173,6 @@ function App() {
     }
   ];
 
-  if (currentView === 'accounting') {
-    return <AccountingDashboard onBack={() => setCurrentView('landing')} />;
-  }
-
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -110,13 +190,14 @@ function App() {
             </nav>
             <div className="flex items-center space-x-4">
               <button 
-                onClick={() => setCurrentView('accounting')}
-                className="text-gray-600 hover:text-blue-600 transition-colors font-medium"
+                onClick={() => setShowAuthModal(true)}
+                className="text-gray-600 hover:text-blue-600 transition-colors font-medium flex items-center space-x-2"
               >
-                Accounting Demo
+                <LogIn className="h-5 w-5" />
+                <span>Login</span>
               </button>
               <button 
-                onClick={() => setCurrentView('accounting')}
+                onClick={() => setShowAuthModal(true)}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Get Started
@@ -146,10 +227,10 @@ function App() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
-                onClick={() => setCurrentView('accounting')}
+                onClick={() => setShowAuthModal(true)}
                 className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 font-semibold flex items-center justify-center space-x-2"
               >
-                <span>Try Accounting Demo</span>
+                <span>Try Demo</span>
                 <ArrowRight className="h-5 w-5" />
               </button>
               <button className="border border-gray-300 text-gray-700 px-8 py-4 rounded-lg hover:bg-gray-50 transition-colors font-semibold">
@@ -157,6 +238,21 @@ function App() {
               </button>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Database Users Section */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              System Status
+            </h2>
+            <p className="text-xl text-gray-600">
+              Current registered users and system health
+            </p>
+          </div>
+          <DatabaseUserChecker />
         </div>
       </section>
 
@@ -374,10 +470,10 @@ function App() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button 
-              onClick={() => setCurrentView('accounting')}
+              onClick={() => setShowAuthModal(true)}
               className="bg-white text-blue-600 px-8 py-4 rounded-lg hover:bg-gray-100 transition-colors font-semibold"
             >
-              Try Accounting Demo
+              Try Demo
             </button>
             <button className="border-2 border-white text-white px-8 py-4 rounded-lg hover:bg-white hover:text-blue-600 transition-colors font-semibold">
               Schedule Demo
@@ -443,6 +539,16 @@ function App() {
           </div>
         </div>
       </footer>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={handleAuthSuccess}
+      />
+
+      {/* Dev Tools */}
+      <DevTools />
     </div>
   );
 }
