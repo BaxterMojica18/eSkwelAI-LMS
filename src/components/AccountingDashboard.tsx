@@ -390,7 +390,7 @@ This is a friendly reminder that a payment is due for {{student_name}}.
 
 Payment Details:
 - Description: {{fee_description}}
-- Amount: ${{amount}}
+- Amount: {{amount}}
 - Due Date: {{due_date}}
 - Student: {{student_name}}
 
