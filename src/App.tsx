@@ -17,19 +17,39 @@ import {
   MapPin,
   Building,
   User,
-  LogIn
+  LogIn,
+  School
 } from 'lucide-react';
 import AccountingDashboard from './components/AccountingDashboard';
 import TeacherDashboard from './components/TeacherDashboard';
 import ParentDashboard from './components/ParentDashboard';
 import StudentDashboard from './components/StudentDashboard';
 import TempAuthSelector from './components/TempAuthSelector';
+import SchoolRegistration from './components/SchoolRegistration';
+import SchoolDemoAccess from './components/SchoolDemoAccess';
 import { useTempAuth } from './hooks/useTempAuth';
+
+interface SchoolData {
+  schoolName: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+  principalName: string;
+  principalEmail: string;
+  logoUrl: string;
+  plan: 'small' | 'medium' | 'large';
+  studentCount: string;
+  teacherCount: string;
+}
 
 function App() {
   const { user, profile, loading, isAuthenticated, signIn, signOut } = useTempAuth();
   const [currentView, setCurrentView] = useState('landing');
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showSchoolRegistration, setShowSchoolRegistration] = useState(false);
+  const [showSchoolDemo, setShowSchoolDemo] = useState(false);
+  const [schoolData, setSchoolData] = useState<SchoolData | null>(null);
 
   // Redirect based on user role when authenticated
   useEffect(() => {
@@ -63,6 +83,23 @@ function App() {
   const handleSignOut = async () => {
     await signOut();
     setCurrentView('landing');
+  };
+
+  const handleSchoolRegistrationComplete = (data: SchoolData) => {
+    setSchoolData(data);
+    setShowSchoolRegistration(false);
+    setShowSchoolDemo(true);
+  };
+
+  const handleSchoolDemoUserSelect = async (userData: any) => {
+    // Update user data with school information
+    const userWithSchool = {
+      ...userData,
+      school_id: schoolData?.schoolName || 'demo-school',
+      school_name: schoolData?.schoolName || 'Demo School'
+    };
+    await signIn(userWithSchool);
+    setShowSchoolDemo(false);
   };
 
   // Show loading screen while checking authentication
@@ -184,6 +221,13 @@ function App() {
                 <span>Demo Login</span>
               </button>
               <button 
+                onClick={() => setShowSchoolRegistration(true)}
+                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+              >
+                <School className="h-5 w-5" />
+                <span>Register School</span>
+              </button>
+              <button 
                 onClick={() => setShowAuthModal(true)}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
@@ -214,6 +258,13 @@ function App() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
+                onClick={() => setShowSchoolRegistration(true)}
+                className="bg-green-600 text-white px-8 py-4 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 font-semibold flex items-center justify-center space-x-2"
+              >
+                <School className="h-5 w-5" />
+                <span>Register Your School</span>
+              </button>
+              <button 
                 onClick={() => setShowAuthModal(true)}
                 className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 font-semibold flex items-center justify-center space-x-2"
               >
@@ -228,13 +279,60 @@ function App() {
         </div>
       </section>
 
-      {/* Demo Notice */}
-      <section className="py-12 bg-gradient-to-r from-green-50 to-blue-50">
+      {/* School Owner CTA */}
+      <section className="py-16 bg-gradient-to-r from-green-50 to-blue-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="bg-white rounded-2xl shadow-lg p-8 border border-green-200">
+          <div className="bg-white rounded-2xl shadow-xl p-8 border border-green-200">
+            <div className="flex items-center justify-center mb-6">
+              <div className="bg-green-100 p-4 rounded-full">
+                <School className="h-12 w-12 text-green-600" />
+              </div>
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              🏫 School Owners & Administrators
+            </h2>
+            <p className="text-lg text-gray-600 mb-6">
+              Ready to revolutionize your school management? Register your institution and get instant access to our comprehensive demo system.
+            </p>
+            <div className="grid md:grid-cols-2 gap-6 mb-8">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                <h3 className="font-semibold text-green-900 mb-2">Complete Registration</h3>
+                <p className="text-sm text-green-700">Add your school details, logo, and choose your plan size</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <Users className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                <h3 className="font-semibold text-blue-900 mb-2">Test All Roles</h3>
+                <p className="text-sm text-blue-700">Access demo accounts for accounting, teachers, parents, and students</p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button 
+                onClick={() => setShowSchoolRegistration(true)}
+                className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-8 py-3 rounded-lg hover:from-green-700 hover:to-blue-700 transition-all font-semibold flex items-center justify-center space-x-2"
+              >
+                <School className="h-5 w-5" />
+                <span>Register Your School Now</span>
+                <ArrowRight className="h-5 w-5" />
+              </button>
+              <button 
+                onClick={() => setShowAuthModal(true)}
+                className="border border-gray-300 text-gray-700 px-8 py-3 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
+              >
+                Quick Demo Access
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Demo Notice */}
+      <section className="py-12 bg-gradient-to-r from-blue-50 to-purple-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="bg-white rounded-2xl shadow-lg p-8 border border-blue-200">
             <div className="flex items-center justify-center mb-4">
-              <div className="bg-green-100 p-3 rounded-full">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+              <div className="bg-blue-100 p-3 rounded-full">
+                <CheckCircle className="h-8 w-8 text-blue-600" />
               </div>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
@@ -268,7 +366,7 @@ function App() {
             <div className="mt-6">
               <button 
                 onClick={() => setShowAuthModal(true)}
-                className="bg-gradient-to-r from-blue-600 to-green-600 text-white px-8 py-3 rounded-lg hover:from-blue-700 hover:to-green-700 transition-all font-semibold"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-semibold"
               >
                 Start Testing Now →
               </button>
@@ -491,8 +589,15 @@ function App() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button 
+              onClick={() => setShowSchoolRegistration(true)}
+              className="bg-white text-blue-600 px-8 py-4 rounded-lg hover:bg-gray-100 transition-colors font-semibold flex items-center justify-center space-x-2"
+            >
+              <School className="h-5 w-5" />
+              <span>Register Your School</span>
+            </button>
+            <button 
               onClick={() => setShowAuthModal(true)}
-              className="bg-white text-blue-600 px-8 py-4 rounded-lg hover:bg-gray-100 transition-colors font-semibold"
+              className="border-2 border-white text-white px-8 py-4 rounded-lg hover:bg-white hover:text-blue-600 transition-colors font-semibold"
             >
               Try Demo
             </button>
@@ -561,12 +666,27 @@ function App() {
         </div>
       </footer>
 
-      {/* Auth Modal */}
+      {/* Modals */}
       <TempAuthSelector
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         onSelectUser={handleUserSelect}
       />
+
+      <SchoolRegistration
+        isOpen={showSchoolRegistration}
+        onClose={() => setShowSchoolRegistration(false)}
+        onComplete={handleSchoolRegistrationComplete}
+      />
+
+      {schoolData && (
+        <SchoolDemoAccess
+          isOpen={showSchoolDemo}
+          onClose={() => setShowSchoolDemo(false)}
+          schoolData={schoolData}
+          onSelectUser={handleSchoolDemoUserSelect}
+        />
+      )}
     </div>
   );
 }
