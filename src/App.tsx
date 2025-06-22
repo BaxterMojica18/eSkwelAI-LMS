@@ -27,6 +27,7 @@ import StudentDashboard from './components/StudentDashboard';
 import TempAuthSelector from './components/TempAuthSelector';
 import SchoolRegistration from './components/SchoolRegistration';
 import SchoolDemoAccess from './components/SchoolDemoAccess';
+import SchoolOwnerDashboard from './components/SchoolOwnerDashboard';
 import { useTempAuth } from './hooks/useTempAuth';
 
 interface SchoolData {
@@ -50,30 +51,35 @@ function App() {
   const [showSchoolRegistration, setShowSchoolRegistration] = useState(false);
   const [showSchoolDemo, setShowSchoolDemo] = useState(false);
   const [schoolData, setSchoolData] = useState<SchoolData | null>(null);
+  const [isSchoolOwner, setIsSchoolOwner] = useState(false);
 
   // Redirect based on user role when authenticated
   useEffect(() => {
     if (isAuthenticated && profile) {
-      switch (profile.role) {
-        case 'accounting':
-          setCurrentView('accounting');
-          break;
-        case 'teacher':
-          setCurrentView('teacher');
-          break;
-        case 'parent':
-          setCurrentView('parent');
-          break;
-        case 'student':
-          setCurrentView('student');
-          break;
-        default:
-          setCurrentView('landing');
+      if (isSchoolOwner) {
+        setCurrentView('school-owner');
+      } else {
+        switch (profile.role) {
+          case 'accounting':
+            setCurrentView('accounting');
+            break;
+          case 'teacher':
+            setCurrentView('teacher');
+            break;
+          case 'parent':
+            setCurrentView('parent');
+            break;
+          case 'student':
+            setCurrentView('student');
+            break;
+          default:
+            setCurrentView('landing');
+        }
       }
     } else {
       setCurrentView('landing');
     }
-  }, [isAuthenticated, profile]);
+  }, [isAuthenticated, profile, isSchoolOwner]);
 
   const handleUserSelect = async (userData: any) => {
     await signIn(userData);
@@ -82,6 +88,8 @@ function App() {
 
   const handleSignOut = async () => {
     await signOut();
+    setIsSchoolOwner(false);
+    setSchoolData(null);
     setCurrentView('landing');
   };
 
@@ -102,6 +110,28 @@ function App() {
     setShowSchoolDemo(false);
   };
 
+  const handleSchoolOwnerAccess = () => {
+    // Simulate school owner login
+    setIsSchoolOwner(true);
+    setCurrentView('school-owner');
+    // Use existing school data or create default
+    if (!schoolData) {
+      setSchoolData({
+        schoolName: 'Demo Elementary School',
+        address: '123 Education Street, Learning City, LC 12345',
+        phone: '+1 (555) 123-4567',
+        email: 'admin@demoschool.edu',
+        website: 'https://www.demoschool.edu',
+        principalName: 'Dr. Jane Smith',
+        principalEmail: 'principal@demoschool.edu',
+        logoUrl: '',
+        plan: 'medium',
+        studentCount: '750',
+        teacherCount: '45'
+      });
+    }
+  };
+
   // Show loading screen while checking authentication
   if (loading) {
     return (
@@ -112,6 +142,11 @@ function App() {
         </div>
       </div>
     );
+  }
+
+  // School Owner Dashboard
+  if (isSchoolOwner && schoolData) {
+    return <SchoolOwnerDashboard schoolData={schoolData} onSignOut={handleSignOut} />;
   }
 
   // Role-based dashboard routing
@@ -228,10 +263,11 @@ function App() {
                 <span>Register School</span>
               </button>
               <button 
-                onClick={() => setShowAuthModal(true)}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={handleSchoolOwnerAccess}
+                className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
               >
-                Try Demo
+                <Building className="h-5 w-5" />
+                <span>School Dashboard</span>
               </button>
             </div>
           </div>
@@ -271,8 +307,12 @@ function App() {
                 <span>Try Demo</span>
                 <ArrowRight className="h-5 w-5" />
               </button>
-              <button className="border border-gray-300 text-gray-700 px-8 py-4 rounded-lg hover:bg-gray-50 transition-colors font-semibold">
-                Watch Demo
+              <button 
+                onClick={handleSchoolOwnerAccess}
+                className="border border-gray-300 text-gray-700 px-8 py-4 rounded-lg hover:bg-gray-50 transition-colors font-semibold flex items-center justify-center space-x-2"
+              >
+                <Building className="h-5 w-5" />
+                <span>School Dashboard</span>
               </button>
             </div>
           </div>
@@ -316,10 +356,11 @@ function App() {
                 <ArrowRight className="h-5 w-5" />
               </button>
               <button 
-                onClick={() => setShowAuthModal(true)}
-                className="border border-gray-300 text-gray-700 px-8 py-3 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
+                onClick={handleSchoolOwnerAccess}
+                className="bg-purple-600 text-white px-8 py-3 rounded-lg hover:bg-purple-700 transition-colors font-semibold flex items-center justify-center space-x-2"
               >
-                Quick Demo Access
+                <Building className="h-5 w-5" />
+                <span>View School Dashboard</span>
               </button>
             </div>
           </div>
@@ -601,8 +642,12 @@ function App() {
             >
               Try Demo
             </button>
-            <button className="border-2 border-white text-white px-8 py-4 rounded-lg hover:bg-white hover:text-blue-600 transition-colors font-semibold">
-              Schedule Demo
+            <button 
+              onClick={handleSchoolOwnerAccess}
+              className="border-2 border-white text-white px-8 py-4 rounded-lg hover:bg-white hover:text-blue-600 transition-colors font-semibold flex items-center justify-center space-x-2"
+            >
+              <Building className="h-5 w-5" />
+              <span>School Dashboard</span>
             </button>
           </div>
         </div>
