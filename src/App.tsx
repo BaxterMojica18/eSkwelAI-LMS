@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { 
   GraduationCap, 
   Users, 
@@ -18,17 +18,24 @@ import {
   Building,
   User,
   LogIn,
-  School
+  School,
+  UserPlus
 } from 'lucide-react';
-import AccountingDashboard from './components/AccountingDashboard';
-import TeacherDashboard from './components/TeacherDashboard';
-import ParentDashboard from './components/ParentDashboard';
-import StudentDashboard from './components/StudentDashboard';
+import AccountingDashboard from './components/dashboards/AccountingDashboard';
+import TeacherDashboard from './components/dashboards/TeacherDashboard';
+import ParentDashboard from './components/dashboards/ParentDashboard';
+import StudentDashboard from './components/dashboards/StudentDashboard';
+import DeveloperDashboard from './components/dashboards/DeveloperDashboard';
 import TempAuthSelector from './components/TempAuthSelector';
 import SchoolRegistration from './components/SchoolRegistration';
-import SchoolDemoAccess from './components/SchoolDemoAccess';
-import SchoolOwnerDashboard from './components/SchoolOwnerDashboard';
-import { useTempAuth } from './hooks/useTempAuth';
+import { UserRegistration } from './components/UserRegistration';
+import SchoolDashboard from './components/SchoolDashboard';
+import ChatbotSupport from './components/ChatbotSupport';
+import DevTools from './components/DevTools';
+import LoadingSpinner from './components/ui/LoadingSpinner';
+import AuthModal from './components/ui/AuthModal';
+import DemoRoleSelector from './components/DemoRoleSelector';
+import { useAuth } from './hooks/useAuth';
 
 interface SchoolData {
   schoolName: string;
@@ -42,24 +49,47 @@ interface SchoolData {
   plan: 'small' | 'medium' | 'large';
   studentCount: string;
   teacherCount: string;
+  schoolCode: string;
+}
+
+interface DemoUser {
+  id: string;
+  email: string;
+  role: 'accounting' | 'teacher' | 'parent' | 'student';
+  first_name: string;
+  last_name: string;
+  school_id: string;
+  description: string;
+  features: string[];
 }
 
 function App() {
-  const { user, profile, loading, isAuthenticated, signIn, signOut } = useTempAuth();
-  const [currentView, setCurrentView] = useState('landing');
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [showSchoolRegistration, setShowSchoolRegistration] = useState(false);
-  const [showSchoolDemo, setShowSchoolDemo] = useState(false);
-  const [schoolData, setSchoolData] = useState<SchoolData | null>(null);
-  const [isSchoolOwner, setIsSchoolOwner] = useState(false);
+  const { user, profile, loading, isAuthenticated, createSchool, signOut } = useAuth();
+  const [currentView, setCurrentView] = React.useState('landing');
+  const [showAuthModal, setShowAuthModal] = React.useState(false);
+  const [showSchoolRegistration, setShowSchoolRegistration] = React.useState(false);
+  const [showUserRegistration, setShowUserRegistration] = React.useState(false);
+  const [showDemoRoleSelector, setShowDemoRoleSelector] = React.useState(false);
+  const [schoolData, setSchoolData] = React.useState<SchoolData | null>(null);
+  const [isSchoolOwner, setIsSchoolOwner] = React.useState(false);
+  const [authModalMode, setAuthModalMode] = React.useState<'signin' | 'signup'>('signin');
+  const [authModalRole, setAuthModalRole] = React.useState('student');
+  const [demoUser, setDemoUser] = React.useState<DemoUser | null>(null);
 
   // Redirect based on user role when authenticated
-  useEffect(() => {
+  React.useEffect(() => {
     if (isAuthenticated && profile) {
+      console.log('User authenticated, profile:', profile);
+      
       if (isSchoolOwner) {
         setCurrentView('school-owner');
       } else {
+        // Route to appropriate dashboard based on role
         switch (profile.role) {
+          case 'developer':
+          case 'admin':
+            setCurrentView('developer');
+            break;
           case 'accounting':
             setCurrentView('accounting');
             break;
@@ -73,41 +103,95 @@ function App() {
             setCurrentView('student');
             break;
           default:
+            console.warn('Unknown role:', profile.role);
             setCurrentView('landing');
         }
       }
-    } else {
+    } else if (!loading) {
       setCurrentView('landing');
     }
-  }, [isAuthenticated, profile, isSchoolOwner]);
+  }, [isAuthenticated, profile, isSchoolOwner, loading]);
 
   const handleUserSelect = async (userData: any) => {
-    await signIn(userData);
+    // This is for demo login - we'll implement this later if needed
     setShowAuthModal(false);
   };
 
+  const handleDemoRoleSelect = (selectedUser: DemoUser) => {
+    console.log('Demo role selected:', selectedUser);
+    setDemoUser(selectedUser);
+    
+    // Set the current view based on the selected role
+    switch (selectedUser.role) {
+      case 'accounting':
+        setCurrentView('accounting');
+        break;
+      case 'teacher':
+        setCurrentView('teacher');
+        break;
+      case 'parent':
+        setCurrentView('parent');
+        break;
+      case 'student':
+        setCurrentView('student');
+        break;
+      default:
+        setCurrentView('landing');
+    }
+  };
+
   const handleSignOut = async () => {
+    console.log('Signing out...');
     await signOut();
     setIsSchoolOwner(false);
     setSchoolData(null);
+    setDemoUser(null);
     setCurrentView('landing');
   };
 
-  const handleSchoolRegistrationComplete = (data: SchoolData) => {
-    setSchoolData(data);
-    setShowSchoolRegistration(false);
-    setShowSchoolDemo(true);
+  const handleSchoolRegistrationComplete = async (data: SchoolData) => {
+    try {
+      // Create the school in the database
+      const { school, error } = await createSchool({
+        name: data.schoolName,
+        address: data.address,
+        phone: data.phone,
+        email: data.email,
+        website: data.website,
+        principalName: data.principalName,
+        principalEmail: data.principalEmail,
+        logoUrl: data.logoUrl,
+        plan: data.plan,
+        studentCount: data.studentCount,
+        teacherCount: data.teacherCount
+      });
+
+      if (error) {
+        console.error('Error creating school:', error);
+        return;
+      }
+
+      if (school) {
+        const completeSchoolData = {
+          ...data,
+          schoolCode: school.school_code
+        };
+        
+        setSchoolData(completeSchoolData);
+        setShowSchoolRegistration(false);
+        setIsSchoolOwner(true);
+        setCurrentView('school-owner');
+      }
+    } catch (error) {
+      console.error('Error in school registration:', error);
+    }
   };
 
-  const handleSchoolDemoUserSelect = async (userData: any) => {
-    // Update user data with school information
-    const userWithSchool = {
-      ...userData,
-      school_id: schoolData?.schoolName || 'demo-school',
-      school_name: schoolData?.schoolName || 'Demo School'
-    };
-    await signIn(userWithSchool);
-    setShowSchoolDemo(false);
+  const handleUserRegistrationSuccess = (userData: any) => {
+    console.log('User registration successful:', userData);
+    setShowUserRegistration(false);
+    // The useEffect will handle routing to the appropriate dashboard
+    // based on the user's role once they're authenticated
   };
 
   const handleSchoolOwnerAccess = () => {
@@ -127,41 +211,221 @@ function App() {
         logoUrl: '',
         plan: 'medium',
         studentCount: '750',
-        teacherCount: '45'
+        teacherCount: '45',
+        schoolCode: 'DEM1234'
       });
     }
+  };
+
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
+    // The useEffect will handle routing based on the authenticated user's role
+  };
+
+  const handleRegisterSchoolClick = () => {
+    // Only show school registration if user is authenticated
+    if (isAuthenticated) {
+      setShowSchoolRegistration(true);
+    } else {
+      // If not authenticated, show sign in modal first
+      setAuthModalMode('signin');
+      setShowAuthModal(true);
+    }
+  };
+
+  // Get role-specific dashboard button info
+  const getDashboardButtonInfo = () => {
+    // For demo users
+    if (demoUser) {
+      const roleName = demoUser.role === 'accounting' ? 'Admin' : 
+                     demoUser.role.charAt(0).toUpperCase() + demoUser.role.slice(1);
+      return {
+        label: `${roleName} Dashboard`,
+        onClick: () => {
+          // Already in the dashboard, do nothing or show a menu
+        }
+      };
+    }
+
+    // For authenticated users
+    if (isAuthenticated && profile) {
+      let roleName = '';
+      switch (profile.role) {
+        case 'developer':
+        case 'admin':
+          roleName = 'Admin';
+          break;
+        case 'accounting':
+          roleName = 'Admin';
+          break;
+        case 'teacher':
+          roleName = 'Teacher';
+          break;
+        case 'parent':
+          roleName = 'Parent';
+          break;
+        case 'student':
+          roleName = 'Student';
+          break;
+        default:
+          roleName = 'User';
+      }
+      
+      return {
+        label: `${roleName} Dashboard`,
+        onClick: () => {
+          // Navigate to the user's dashboard based on their role
+          switch (profile.role) {
+            case 'developer':
+            case 'admin':
+              setCurrentView('developer');
+              break;
+            case 'accounting':
+              setCurrentView('accounting');
+              break;
+            case 'teacher':
+              setCurrentView('teacher');
+              break;
+            case 'parent':
+              setCurrentView('parent');
+              break;
+            case 'student':
+              setCurrentView('student');
+              break;
+          }
+        }
+      };
+    }
+
+    // Default for non-authenticated users
+    return {
+      label: 'School Dashboard',
+      onClick: handleSchoolOwnerAccess
+    };
   };
 
   // Show loading screen while checking authentication
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
+      <>
+        <LoadingSpinner />
+        <ChatbotSupport />
+        <DevTools />
+      </>
     );
+  }
+
+  // Demo role dashboards (when a demo user is selected)
+  if (demoUser) {
+    const dashboardProps = { 
+      onSignOut: handleSignOut,
+      demoUser: demoUser // Pass demo user data to show personalized name
+    };
+
+    switch (demoUser.role) {
+      case 'accounting':
+        return (
+          <>
+            <AccountingDashboard {...dashboardProps} />
+            <ChatbotSupport currentUserRole="accounting" />
+            <DevTools />
+          </>
+        );
+      case 'teacher':
+        return (
+          <>
+            <TeacherDashboard {...dashboardProps} />
+            <ChatbotSupport currentUserRole="teacher" />
+            <DevTools />
+          </>
+        );
+      case 'parent':
+        return (
+          <>
+            <ParentDashboard {...dashboardProps} />
+            <ChatbotSupport currentUserRole="parent" />
+            <DevTools />
+          </>
+        );
+      case 'student':
+        return (
+          <>
+            <StudentDashboard {...dashboardProps} />
+            <ChatbotSupport currentUserRole="student" />
+            <DevTools />
+          </>
+        );
+    }
   }
 
   // School Owner Dashboard
   if (isSchoolOwner && schoolData) {
-    return <SchoolOwnerDashboard schoolData={schoolData} onSignOut={handleSignOut} />;
+    return (
+      <>
+        <SchoolDashboard schoolData={schoolData} onSignOut={handleSignOut} />
+        <ChatbotSupport currentUserRole="admin" />
+        <DevTools />
+      </>
+    );
   }
 
   // Role-based dashboard routing
   if (isAuthenticated && profile) {
+    const dashboardProps = { 
+      onSignOut: handleSignOut,
+      userProfile: profile // Pass real user profile for personalized name
+    };
+
     switch (currentView) {
+      case 'developer':
+        return (
+          <>
+            <DeveloperDashboard {...dashboardProps} />
+            <ChatbotSupport currentUserRole="developer" />
+            <DevTools />
+          </>
+        );
       case 'accounting':
-        return <AccountingDashboard onSignOut={handleSignOut} />;
+        return (
+          <>
+            <AccountingDashboard {...dashboardProps} />
+            <ChatbotSupport currentUserRole="accounting" />
+            <DevTools />
+          </>
+        );
       case 'teacher':
-        return <TeacherDashboard onSignOut={handleSignOut} />;
+        return (
+          <>
+            <TeacherDashboard {...dashboardProps} />
+            <ChatbotSupport currentUserRole="teacher" />
+            <DevTools />
+          </>
+        );
       case 'parent':
-        return <ParentDashboard onSignOut={handleSignOut} />;
+        return (
+          <>
+            <ParentDashboard {...dashboardProps} />
+            <ChatbotSupport currentUserRole="parent" />
+            <DevTools />
+          </>
+        );
       case 'student':
-        return <StudentDashboard onSignOut={handleSignOut} />;
+        return (
+          <>
+            <StudentDashboard {...dashboardProps} />
+            <ChatbotSupport currentUserRole="student" />
+            <DevTools />
+          </>
+        );
       default:
-        return <AccountingDashboard onSignOut={handleSignOut} />;
+        // Fallback to accounting dashboard for unknown roles
+        return (
+          <>
+            <AccountingDashboard {...dashboardProps} />
+            <ChatbotSupport currentUserRole="accounting" />
+            <DevTools />
+          </>
+        );
     }
   }
 
@@ -232,12 +496,14 @@ function App() {
     }
   ];
 
+  const dashboardButtonInfo = getDashboardButtonInfo();
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-2">
               <Brain className="h-8 w-8 text-blue-600" />
               <span className="text-2xl font-bold text-gray-900">eSkwelAI-LMS</span>
@@ -248,26 +514,77 @@ function App() {
               <a href="#contact" className="text-gray-600 hover:text-blue-600 transition-colors">Contact</a>
             </nav>
             <div className="flex items-center space-x-4">
+              {/* Authentication Section - Sign In & Sign Up */}
+              {!isAuthenticated && !demoUser ? (
+                <>
+                  <button 
+                    onClick={() => {
+                      setAuthModalMode('signin');
+                      setShowAuthModal(true);
+                    }}
+                    className="text-gray-600 hover:text-blue-600 transition-colors font-medium flex items-center space-x-2"
+                  >
+                    <LogIn className="h-5 w-5" />
+                    <span>Sign In</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setAuthModalMode('signup');
+                      setAuthModalRole('student');
+                      setShowAuthModal(true);
+                    }}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                  >
+                    <UserPlus className="h-5 w-5" />
+                    <span>Sign Up</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Authenticated User Actions */}
+                  <span className="text-gray-600 text-sm">
+                    Welcome, {demoUser ? demoUser.first_name : profile?.first_name}!
+                  </span>
+                  <button 
+                    onClick={handleSignOut}
+                    className="text-gray-600 hover:text-red-600 transition-colors font-medium"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              )}
+              
+              {/* School Actions Section */}
               <button 
-                onClick={() => setShowAuthModal(true)}
-                className="text-gray-600 hover:text-blue-600 transition-colors font-medium flex items-center space-x-2"
-              >
-                <LogIn className="h-5 w-5" />
-                <span>Demo Login</span>
-              </button>
-              <button 
-                onClick={() => setShowSchoolRegistration(true)}
+                onClick={() => {
+                  setAuthModalMode('signup');
+                  setAuthModalRole('student');
+                  setShowUserRegistration(true);
+                }}
                 className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
               >
-                <School className="h-5 w-5" />
-                <span>Register School</span>
+                <Users className="h-5 w-5" />
+                <span>Join School</span>
               </button>
+              
+              {/* Show Register School button only when authenticated */}
+              {isAuthenticated && (
+                <button 
+                  onClick={handleRegisterSchoolClick}
+                  className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
+                >
+                  <School className="h-5 w-5" />
+                  <span>Register School</span>
+                </button>
+              )}
+              
+              {/* Dynamic Dashboard Button */}
               <button 
-                onClick={handleSchoolOwnerAccess}
-                className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
+                onClick={dashboardButtonInfo.onClick}
+                className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2"
               >
                 <Building className="h-5 w-5" />
-                <span>School Dashboard</span>
+                <span>{dashboardButtonInfo.label}</span>
               </button>
             </div>
           </div>
@@ -293,76 +610,195 @@ function App() {
               Streamline operations, enhance education, and foster growth with our intelligent platform.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              {!isAuthenticated && !demoUser ? (
+                <>
+                  <button 
+                    onClick={() => {
+                      setAuthModalMode('signup');
+                      setAuthModalRole('admin');
+                      setShowAuthModal(true);
+                    }}
+                    className="bg-green-600 text-white px-8 py-4 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 font-semibold flex items-center justify-center space-x-2"
+                  >
+                    <School className="h-5 w-5" />
+                    <span>Get Started - Register School</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setAuthModalMode('signup');
+                      setAuthModalRole('student');
+                      setShowUserRegistration(true);
+                    }}
+                    className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 font-semibold flex items-center justify-center space-x-2"
+                  >
+                    <UserPlus className="h-5 w-5" />
+                    <span>Join a School</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button 
+                    onClick={handleRegisterSchoolClick}
+                    className="bg-green-600 text-white px-8 py-4 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 font-semibold flex items-center justify-center space-x-2"
+                  >
+                    <School className="h-5 w-5" />
+                    <span>Register Your School</span>
+                  </button>
+                  <button 
+                    onClick={() => setShowUserRegistration(true)}
+                    className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 font-semibold flex items-center justify-center space-x-2"
+                  >
+                    <UserPlus className="h-5 w-5" />
+                    <span>Join a School</span>
+                  </button>
+                </>
+              )}
               <button 
-                onClick={() => setShowSchoolRegistration(true)}
-                className="bg-green-600 text-white px-8 py-4 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 font-semibold flex items-center justify-center space-x-2"
-              >
-                <School className="h-5 w-5" />
-                <span>Register Your School</span>
-              </button>
-              <button 
-                onClick={() => setShowAuthModal(true)}
-                className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 font-semibold flex items-center justify-center space-x-2"
-              >
-                <span>Try Demo</span>
-                <ArrowRight className="h-5 w-5" />
-              </button>
-              <button 
-                onClick={handleSchoolOwnerAccess}
+                onClick={() => {
+                  setAuthModalMode('signin');
+                  setShowAuthModal(true);
+                }}
                 className="border border-gray-300 text-gray-700 px-8 py-4 rounded-lg hover:bg-gray-50 transition-colors font-semibold flex items-center justify-center space-x-2"
               >
-                <Building className="h-5 w-5" />
-                <span>School Dashboard</span>
+                <span>Sign In</span>
+                <ArrowRight className="h-5 w-5" />
               </button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* School Owner CTA */}
+      {/* Registration Types Section */}
       <section className="py-16 bg-gradient-to-r from-green-50 to-blue-50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-green-200">
-            <div className="flex items-center justify-center mb-6">
-              <div className="bg-green-100 p-4 rounded-full">
-                <School className="h-12 w-12 text-green-600" />
-              </div>
-            </div>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              🏫 School Owners & Administrators
+              Two Ways to Get Started
             </h2>
-            <p className="text-lg text-gray-600 mb-6">
-              Ready to revolutionize your school management? Register your institution and get instant access to our comprehensive demo system.
+            <p className="text-lg text-gray-600">
+              Choose the registration type that fits your role
             </p>
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                <h3 className="font-semibold text-green-900 mb-2">Complete Registration</h3>
-                <p className="text-sm text-green-700">Add your school details, logo, and choose your plan size</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* School Registration */}
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-green-200">
+              <div className="text-center mb-6">
+                <div className="bg-green-100 p-4 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                  <School className="h-10 w-10 text-green-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  🏫 School Registration
+                </h3>
+                <p className="text-gray-600">
+                  For school administrators and owners
+                </p>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <Users className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                <h3 className="font-semibold text-blue-900 mb-2">Test All Roles</h3>
-                <p className="text-sm text-blue-700">Access demo accounts for accounting, teachers, parents, and students</p>
+
+              <div className="space-y-4 mb-8">
+                <div className="flex items-center space-x-3">
+                  <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                  <span className="text-gray-700">Create your school's account</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                  <span className="text-gray-700">Get a unique school code</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                  <span className="text-gray-700">Manage all school users</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                  <span className="text-gray-700">Access admin dashboard</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                  <span className="text-gray-700">30-day free trial</span>
+                </div>
               </div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+
               <button 
-                onClick={() => setShowSchoolRegistration(true)}
-                className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-8 py-3 rounded-lg hover:from-green-700 hover:to-blue-700 transition-all font-semibold flex items-center justify-center space-x-2"
+                onClick={() => {
+                  if (isAuthenticated) {
+                    handleRegisterSchoolClick();
+                  } else {
+                    setAuthModalMode('signup');
+                    setAuthModalRole('admin');
+                    setShowAuthModal(true);
+                  }
+                }}
+                className="w-full bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center justify-center space-x-2"
               >
                 <School className="h-5 w-5" />
-                <span>Register Your School Now</span>
-                <ArrowRight className="h-5 w-5" />
-              </button>
-              <button 
-                onClick={handleSchoolOwnerAccess}
-                className="bg-purple-600 text-white px-8 py-3 rounded-lg hover:bg-purple-700 transition-colors font-semibold flex items-center justify-center space-x-2"
-              >
-                <Building className="h-5 w-5" />
-                <span>View School Dashboard</span>
+                <span>Register Your School</span>
               </button>
             </div>
+
+            {/* User Registration */}
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-blue-200">
+              <div className="text-center mb-6">
+                <div className="bg-blue-100 p-4 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                  <UserPlus className="h-10 w-10 text-blue-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  👥 Join a School
+                </h3>
+                <p className="text-gray-600">
+                  For teachers, students, and parents
+                </p>
+              </div>
+
+              <div className="space-y-4 mb-8">
+                <div className="flex items-center space-x-3">
+                  <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                  <span className="text-gray-700">Enter your school's code</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                  <span className="text-gray-700">Choose your role (Teacher/Student/Parent)</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                  <span className="text-gray-700">Automatically linked to school</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                  <span className="text-gray-700">Access role-specific features</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                  <span className="text-gray-700">Free to join</span>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => {
+                  setAuthModalMode('signup');
+                  setAuthModalRole('student');
+                  setShowUserRegistration(true);
+                }}
+                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center justify-center space-x-2"
+              >
+                <UserPlus className="h-5 w-5" />
+                <span>Join a School</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="text-center mt-8">
+            <p className="text-gray-600">
+              Already have an account?{' '}
+              <button 
+                onClick={() => {
+                  setAuthModalMode('signin');
+                  setShowAuthModal(true);
+                }}
+                className="text-blue-600 hover:text-blue-700 font-medium underline"
+              >
+                Sign in here
+              </button>
+            </p>
           </div>
         </div>
       </section>
@@ -377,10 +813,10 @@ function App() {
               </div>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              🎯 Demo Mode Active
+              🎯 Demo Mode Available
             </h2>
             <p className="text-lg text-gray-600 mb-6">
-              Test all features without any setup! Click "Demo Login" to explore:
+              Test all features without any setup! Click "Start Testing Now" to explore:
             </p>
             <div className="grid md:grid-cols-4 gap-4">
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -406,7 +842,7 @@ function App() {
             </div>
             <div className="mt-6">
               <button 
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => setShowDemoRoleSelector(true)}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-semibold"
               >
                 Start Testing Now →
@@ -630,24 +1066,39 @@ function App() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button 
-              onClick={() => setShowSchoolRegistration(true)}
+              onClick={() => {
+                if (isAuthenticated) {
+                  handleRegisterSchoolClick();
+                } else {
+                  setAuthModalMode('signup');
+                  setAuthModalRole('admin');
+                  setShowAuthModal(true);
+                }
+              }}
               className="bg-white text-blue-600 px-8 py-4 rounded-lg hover:bg-gray-100 transition-colors font-semibold flex items-center justify-center space-x-2"
             >
               <School className="h-5 w-5" />
               <span>Register Your School</span>
             </button>
             <button 
-              onClick={() => setShowAuthModal(true)}
-              className="border-2 border-white text-white px-8 py-4 rounded-lg hover:bg-white hover:text-blue-600 transition-colors font-semibold"
-            >
-              Try Demo
-            </button>
-            <button 
-              onClick={handleSchoolOwnerAccess}
+              onClick={() => {
+                setAuthModalMode('signup');
+                setAuthModalRole('student');
+                setShowUserRegistration(true);
+              }}
               className="border-2 border-white text-white px-8 py-4 rounded-lg hover:bg-white hover:text-blue-600 transition-colors font-semibold flex items-center justify-center space-x-2"
             >
-              <Building className="h-5 w-5" />
-              <span>School Dashboard</span>
+              <UserPlus className="h-5 w-5" />
+              <span>Join a School</span>
+            </button>
+            <button 
+              onClick={() => {
+                setAuthModalMode('signin');
+                setShowAuthModal(true);
+              }}
+              className="border-2 border-white text-white px-8 py-4 rounded-lg hover:bg-white hover:text-blue-600 transition-colors font-semibold"
+            >
+              Sign In
             </button>
           </div>
         </div>
@@ -673,11 +1124,11 @@ function App() {
                 </div>
                 <div className="flex items-center space-x-3">
                   <Phone className="h-5 w-5 text-blue-400" />
-                  <span className="text-gray-300">+1 (555) 123-4567</span>
+                  <span className="text-gray-300">+63 0993 869 4007</span>
                 </div>
                 <div className="flex items-center space-x-3">
                   <MapPin className="h-5 w-5 text-blue-400" />
-                  <span className="text-gray-300">San Francisco, CA</span>
+                  <span className="text-gray-300">Philippines</span>
                 </div>
               </div>
             </div>
@@ -712,10 +1163,12 @@ function App() {
       </footer>
 
       {/* Modals */}
-      <TempAuthSelector
+      <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
-        onSelectUser={handleUserSelect}
+        onSuccess={handleAuthSuccess}
+        initialMode={authModalMode}
+        initialRole={authModalRole}
       />
 
       <SchoolRegistration
@@ -724,14 +1177,23 @@ function App() {
         onComplete={handleSchoolRegistrationComplete}
       />
 
-      {schoolData && (
-        <SchoolDemoAccess
-          isOpen={showSchoolDemo}
-          onClose={() => setShowSchoolDemo(false)}
-          schoolData={schoolData}
-          onSelectUser={handleSchoolDemoUserSelect}
-        />
-      )}
+      <UserRegistration
+        isOpen={showUserRegistration}
+        onClose={() => setShowUserRegistration(false)}
+        onSuccess={handleUserRegistrationSuccess}
+      />
+
+      <DemoRoleSelector
+        isOpen={showDemoRoleSelector}
+        onClose={() => setShowDemoRoleSelector(false)}
+        onSelectRole={handleDemoRoleSelect}
+      />
+
+      {/* Chatbot Support - Always visible on landing page */}
+      <ChatbotSupport />
+      
+      {/* DevTools - Always visible */}
+      <DevTools />
     </div>
   );
 }

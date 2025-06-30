@@ -9,9 +9,11 @@ import {
   EyeOff,
   Copy,
   Info,
-  AlertTriangle
+  AlertTriangle,
+  Terminal,
+  RefreshCw
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const DevTools: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -23,16 +25,20 @@ const DevTools: React.FC = () => {
     setTestResult(null);
     
     try {
-      // Test basic database connection
+      if (!isSupabaseConfigured || !supabase) {
+        setTestResult('❌ Supabase not configured. Please set up your environment variables.');
+        return;
+      }
+
+      // Test basic connection with a simple query
       const { data, error } = await supabase
-        .from('schools')
-        .select('count')
-        .limit(1);
+        .from('user_profiles')
+        .select('count', { count: 'exact', head: true });
 
       if (error) {
         setTestResult(`❌ Database Error: ${error.message}`);
       } else {
-        setTestResult('✅ Database connection successful!');
+        setTestResult(`✅ Database connected successfully. Found ${data || 0} user profiles.`);
       }
     } catch (error: any) {
       setTestResult(`❌ Connection failed: ${error.message}`);
@@ -41,11 +47,42 @@ const DevTools: React.FC = () => {
     }
   };
 
+  const testTrigger = async () => {
+    setLoading(true);
+    setTestResult(null);
+    
+    try {
+      if (!isSupabaseConfigured || !supabase) {
+        setTestResult('❌ Supabase not configured.');
+        return;
+      }
+
+      // Test if the trigger function exists
+      const { data, error } = await supabase.rpc('check_function_exists', { function_name: 'handle_new_user' });
+
+      if (error) {
+        setTestResult(`❌ Could not check trigger function: ${error.message}. The migration may not be applied yet.`);
+      } else if (data) {
+        setTestResult('✅ Database setup appears to be working. Try creating a new account.');
+      } else {
+        setTestResult('⚠️ Trigger function not found. Please run the holy_sea migration in your Supabase SQL editor.');
+      }
+    } catch (error: any) {
+      setTestResult(`❌ Trigger test failed: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const clearAuthSession = async () => {
     try {
-      await supabase.auth.signOut();
-      setTestResult('✅ Auth session cleared');
-      setTimeout(() => window.location.reload(), 1000);
+      if (supabase) {
+        await supabase.auth.signOut();
+        setTestResult('✅ Session cleared successfully');
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        setTestResult('❌ Supabase not available');
+      }
     } catch (error: any) {
       setTestResult(`❌ Error clearing session: ${error.message}`);
     }
@@ -55,7 +92,7 @@ const DevTools: React.FC = () => {
     return (
       <button
         onClick={() => setIsVisible(true)}
-        className="fixed bottom-4 right-4 bg-purple-600 text-white p-3 rounded-full shadow-lg hover:bg-purple-700 transition-colors z-50"
+        className="fixed bottom-32 right-6 bg-purple-600 text-white p-3 rounded-full shadow-lg hover:bg-purple-700 transition-colors z-50"
         title="Open Dev Tools"
       >
         <Settings className="h-6 w-6" />
@@ -64,7 +101,7 @@ const DevTools: React.FC = () => {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 max-w-lg w-full z-50 max-h-[80vh] overflow-y-auto">
+    <div className="fixed bottom-32 right-6 bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 max-w-lg w-full z-50 max-h-[80vh] overflow-y-auto">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
           <Settings className="h-5 w-5 text-purple-600" />
@@ -79,13 +116,28 @@ const DevTools: React.FC = () => {
       </div>
 
       <div className="space-y-4">
-        {/* Clean Signup Notice */}
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+        {/* Configuration Status */}
+        <div className={`border rounded-lg p-3 ${
+          isSupabaseConfigured ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+        }`}>
           <div className="flex items-start space-x-2">
-            <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-green-800">
-              <p className="font-medium mb-1">Clean Signup System</p>
-              <p>Users can now register with email/password and choose their role during signup.</p>
+            {isSupabaseConfigured ? (
+              <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+            )}
+            <div className="text-xs">
+              <p className={`font-medium mb-1 ${
+                isSupabaseConfigured ? 'text-green-900' : 'text-yellow-900'
+              }`}>
+                {isSupabaseConfigured ? 'Supabase Configured' : 'Supabase Not Configured'}
+              </p>
+              <p className={isSupabaseConfigured ? 'text-green-800' : 'text-yellow-800'}>
+                {isSupabaseConfigured 
+                  ? 'Environment variables are set and Supabase client is initialized.'
+                  : 'Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.'
+                }
+              </p>
             </div>
           </div>
         </div>
@@ -97,26 +149,46 @@ const DevTools: React.FC = () => {
             <span>Database Connection</span>
           </h4>
           
-          <button
-            onClick={testDatabaseConnection}
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 text-sm mb-3"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Testing...</span>
-              </>
-            ) : (
-              <>
-                <Database className="h-4 w-4" />
-                <span>Test Connection</span>
-              </>
-            )}
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={testDatabaseConnection}
+              disabled={loading}
+              className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 text-sm"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Testing...</span>
+                </>
+              ) : (
+                <>
+                  <Database className="h-4 w-4" />
+                  <span>Test Connection</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={testTrigger}
+              disabled={loading || !isSupabaseConfigured}
+              className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2 text-sm"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Checking...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  <span>Test Setup</span>
+                </>
+              )}
+            </button>
+          </div>
 
           {testResult && (
-            <div className="text-sm p-2 bg-gray-50 rounded border">
+            <div className="text-sm p-2 bg-gray-50 rounded border mt-3 whitespace-pre-wrap">
               {testResult}
             </div>
           )}
@@ -124,61 +196,41 @@ const DevTools: React.FC = () => {
 
         {/* Auth Management */}
         <div className="border border-gray-200 rounded-lg p-4">
-          <h4 className="font-medium text-gray-900 mb-3">Authentication</h4>
+          <h4 className="font-medium text-gray-900 mb-3">Session Management</h4>
           
           <button
             onClick={clearAuthSession}
             className="w-full bg-red-600 text-white py-2 px-3 rounded-lg hover:bg-red-700 transition-colors text-sm"
           >
-            Clear Auth Session
+            Clear Session & Reload
           </button>
         </div>
 
-        {/* Signup Instructions */}
+        {/* Migration Instructions */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
           <div className="flex items-start space-x-2">
             <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
             <div>
-              <h5 className="text-sm font-medium text-blue-900 mb-1">How to Use:</h5>
+              <h5 className="text-sm font-medium text-blue-900 mb-1">Setup Instructions:</h5>
               <ol className="text-xs text-blue-800 space-y-1">
-                <li>1. Click "Login" in the header</li>
-                <li>2. Switch to "Create Account" tab</li>
-                <li>3. Fill in your details and choose your role</li>
-                <li>4. Sign up and start using the system</li>
+                <li>1. Copy SQL from <code className="bg-blue-100 px-1 rounded">supabase/migrations/20250630034146_holy_sea.sql</code></li>
+                <li>2. Run it in your Supabase SQL editor</li>
+                <li>3. Test the connection above</li>
+                <li>4. Try creating a new account</li>
               </ol>
             </div>
           </div>
         </div>
 
-        {/* Available Roles */}
+        {/* Environment Info */}
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-          <h5 className="text-sm font-medium text-gray-900 mb-2">Available Roles:</h5>
-          <div className="grid grid-cols-2 gap-1 text-xs">
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-              <span>Developer</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span>Teacher</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span>Student</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-              <span>Parent</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-              <span>Admin</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-              <span>Accounting</span>
-            </div>
-          </div>
+          <h5 className="text-sm font-medium text-gray-900 mb-1">Environment Status:</h5>
+          <ul className="text-xs text-gray-700 space-y-1">
+            <li>✅ Frontend: React + TypeScript</li>
+            <li>{isSupabaseConfigured ? '✅' : '❌'} Supabase: {isSupabaseConfigured ? 'Connected' : 'Not configured'}</li>
+            <li>✅ Authentication: {isSupabaseConfigured ? 'Supabase Auth' : 'Disabled'}</li>
+            <li>✅ Database: {isSupabaseConfigured ? 'PostgreSQL via Supabase' : 'Not available'}</li>
+          </ul>
         </div>
       </div>
     </div>

@@ -1,359 +1,159 @@
-import { supabase } from './supabase';
-import type { Database } from './supabase';
-
-type UserProfile = Database['public']['Tables']['user_profiles']['Row'];
-
-export interface AuthError {
-  message: string;
-  code?: string;
-}
-
-export interface SignUpData {
-  email: string;
-  password: string;
-  phone?: string;
-  firstName: string;
-  lastName: string;
-  role: 'student' | 'teacher' | 'parent' | 'admin' | 'accounting' | 'developer';
-  schoolId?: string; // Made optional
-  dateOfBirth?: string;
-  address?: string;
-}
-
 export interface SignInData {
   email: string;
   password: string;
 }
 
-export interface ResetPasswordData {
-  email?: string;
-  phone?: string;
+export interface SignUpData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  role: string;
+  dateOfBirth: string;
+  address: string;
 }
 
+// Demo users for different roles
+const demoUsers = {
+  'developer@demo.com': {
+    id: 'dev-001',
+    email: 'developer@demo.com',
+    first_name: 'Alex',
+    last_name: 'Developer',
+    role: 'developer'
+  },
+  'admin@demo.com': {
+    id: 'admin-001',
+    email: 'admin@demo.com',
+    first_name: 'Sarah',
+    last_name: 'Admin',
+    role: 'admin',
+    school_id: 'school-001'
+  },
+  'teacher@demo.com': {
+    id: 'teacher-001',
+    email: 'teacher@demo.com',
+    first_name: 'Michael',
+    last_name: 'Davis',
+    role: 'teacher',
+    school_id: 'school-001'
+  },
+  'student@demo.com': {
+    id: 'student-001',
+    email: 'student@demo.com',
+    first_name: 'Alex',
+    last_name: 'Johnson',
+    role: 'student',
+    school_id: 'school-001'
+  },
+  'parent@demo.com': {
+    id: 'parent-001',
+    email: 'parent@demo.com',
+    first_name: 'Jennifer',
+    last_name: 'Smith',
+    role: 'parent',
+    school_id: 'school-001'
+  },
+  'accounting@demo.com': {
+    id: 'accounting-001',
+    email: 'accounting@demo.com',
+    first_name: 'Lisa',
+    last_name: 'Finance',
+    role: 'accounting',
+    school_id: 'school-001'
+  }
+};
+
 class AuthService {
-  // Get or create default school using the database function
-  private async getDefaultSchool(): Promise<string> {
+  async signIn(data: SignInData) {
     try {
-      const { data, error } = await supabase.rpc('get_default_school_id');
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      if (error) {
-        console.error('Error getting default school:', error);
-        throw error;
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Error in getDefaultSchool:', error);
-      // Fallback: return a hardcoded UUID if all else fails
-      return '11111111-1111-1111-1111-111111111111';
-    }
-  }
-
-  // Sign up with email and password
-  async signUp(data: SignUpData): Promise<{ user: any; profile: UserProfile | null; error: AuthError | null }> {
-    try {
-      // Create auth user first
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            first_name: data.firstName,
-            last_name: data.lastName,
-            phone: data.phone,
-            role: data.role
-          }
-        }
-      });
-
-      if (authError) {
-        return { user: null, profile: null, error: { message: authError.message, code: authError.message } };
-      }
-
-      if (!authData.user) {
-        return { user: null, profile: null, error: { message: 'Failed to create user account' } };
-      }
-
-      // Get or create default school
-      const schoolId = data.schoolId || await this.getDefaultSchool();
-
-      // Create user profile using the database function
-      const { data: profileId, error: profileError } = await supabase.rpc('create_user_profile', {
-        user_id: authData.user.id,
-        user_email: data.email,
-        user_role: data.role,
-        first_name: data.firstName,
-        last_name: data.lastName,
-        user_phone: data.phone || null,
-        user_address: data.address || null,
-        school_id: schoolId
-      });
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
-        return { user: authData.user, profile: null, error: { message: 'Failed to create user profile', code: profileError.code } };
-      }
-
-      // Fetch the created profile
-      const { data: profile, error: fetchError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single();
-
-      if (fetchError) {
-        return { user: authData.user, profile: null, error: { message: 'Profile created but failed to fetch', code: fetchError.code } };
-      }
-
-      return { user: authData.user, profile, error: null };
-    } catch (error: any) {
-      console.error('Signup error:', error);
-      return { user: null, profile: null, error: { message: error.message || 'An unexpected error occurred' } };
-    }
-  }
-
-  // Sign in with email and password
-  async signIn(data: SignInData): Promise<{ user: any; profile: UserProfile | null; error: AuthError | null }> {
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
-
-      if (authError) {
-        return { user: null, profile: null, error: { message: authError.message, code: authError.message } };
-      }
-
-      if (!authData.user) {
+      const user = demoUsers[data.email.toLowerCase()];
+      if (user && data.password === 'demo123') {
+        const profile = { ...user };
+        return { user, profile, error: null };
+      } else {
         return { user: null, profile: null, error: { message: 'Invalid credentials' } };
       }
-
-      // Fetch user profile
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single();
-
-      if (profileError) {
-        return { user: authData.user, profile: null, error: { message: 'Failed to fetch user profile' } };
-      }
-
-      return { user: authData.user, profile, error: null };
     } catch (error: any) {
-      return { user: null, profile: null, error: { message: error.message || 'An unexpected error occurred' } };
+      return { user: null, profile: null, error: { message: error.message || 'An error occurred during sign in' } };
     }
   }
 
-  // Sign out
-  async signOut(): Promise<{ error: AuthError | null }> {
+  async signUp(data: SignUpData) {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        return { error: { message: error.message, code: error.message } };
-      }
-      return { error: null };
-    } catch (error: any) {
-      return { error: { message: error.message || 'An unexpected error occurred' } };
-    }
-  }
-
-  // Reset password via email
-  async resetPasswordEmail(email: string): Promise<{ error: AuthError | null }> {
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-
-      if (error) {
-        return { error: { message: error.message, code: error.message } };
-      }
-
-      return { error: null };
-    } catch (error: any) {
-      return { error: { message: error.message || 'An unexpected error occurred' } };
-    }
-  }
-
-  // Reset password via SMS (using phone number)
-  async resetPasswordSMS(phone: string): Promise<{ error: AuthError | null }> {
-    try {
-      // First, find user by phone number
-      const { data: profiles, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('email')
-        .eq('phone', phone)
-        .limit(1);
-
-      if (profileError || !profiles || profiles.length === 0) {
-        return { error: { message: 'Phone number not found in our records' } };
-      }
-
-      // Generate a 6-digit reset code
-      const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Store the reset code temporarily (you might want to use a separate table for this)
-      const { error: codeError } = await supabase
-        .from('user_profiles')
-        .update({ 
-          metadata: { 
-            reset_code: resetCode, 
-            reset_code_expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutes
-          } 
-        })
-        .eq('phone', phone);
-
-      if (codeError) {
-        return { error: { message: 'Failed to generate reset code' } };
+      // Check if user already exists
+      if (demoUsers[data.email.toLowerCase()]) {
+        return { user: null, profile: null, error: { message: 'User already registered with this email' } };
       }
-
-      // Here you would integrate with an SMS service like Twilio
-      // For now, we'll simulate sending SMS
-      console.log(`SMS Reset Code for ${phone}: ${resetCode}`);
       
-      // In production, you would call your SMS service here:
-      // await this.sendSMS(phone, `Your password reset code is: ${resetCode}`);
-
-      return { error: null };
-    } catch (error: any) {
-      return { error: { message: error.message || 'An unexpected error occurred' } };
-    }
-  }
-
-  // Verify SMS reset code and update password
-  async verifyResetCodeAndUpdatePassword(phone: string, code: string, newPassword: string): Promise<{ error: AuthError | null }> {
-    try {
-      // Get user profile with reset code
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('phone', phone)
-        .single();
-
-      if (profileError || !profile) {
-        return { error: { message: 'Phone number not found' } };
-      }
-
-      const metadata = profile.metadata as any;
-      if (!metadata?.reset_code || metadata.reset_code !== code) {
-        return { error: { message: 'Invalid reset code' } };
-      }
-
-      // Check if code is expired
-      const expiresAt = new Date(metadata.reset_code_expires);
-      if (expiresAt < new Date()) {
-        return { error: { message: 'Reset code has expired' } };
-      }
-
-      // Update password using admin API (you'll need service role key for this)
-      const { error: updateError } = await supabase.auth.admin.updateUserById(
-        profile.id,
-        { password: newPassword }
-      );
-
-      if (updateError) {
-        return { error: { message: 'Failed to update password' } };
-      }
-
-      // Clear reset code
-      await supabase
-        .from('user_profiles')
-        .update({ 
-          metadata: { 
-            ...metadata, 
-            reset_code: null, 
-            reset_code_expires: null 
-          } 
-        })
-        .eq('id', profile.id);
-
-      return { error: null };
-    } catch (error: any) {
-      return { error: { message: error.message || 'An unexpected error occurred' } };
-    }
-  }
-
-  // Update password for authenticated user
-  async updatePassword(newPassword: string): Promise<{ error: AuthError | null }> {
-    try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      if (error) {
-        return { error: { message: error.message, code: error.message } };
-      }
-
-      return { error: null };
-    } catch (error: any) {
-      return { error: { message: error.message || 'An unexpected error occurred' } };
-    }
-  }
-
-  // Get current session
-  async getCurrentSession() {
-    try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        return { session: null, error: { message: error.message } };
-      }
-      return { session, error: null };
-    } catch (error: any) {
-      return { session: null, error: { message: error.message || 'An unexpected error occurred' } };
-    }
-  }
-
-  // Get current user profile
-  async getCurrentUserProfile(): Promise<{ profile: UserProfile | null; error: AuthError | null }> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // Create new user
+      const newUser = {
+        id: `user-${Date.now()}`,
+        email: data.email,
+        first_name: data.firstName,
+        last_name: data.lastName,
+        role: data.role,
+        school_id: 'school-001' // Default school for demo
+      };
       
-      if (!user) {
-        return { profile: null, error: { message: 'No authenticated user' } };
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) {
-        return { profile: null, error: { message: 'Failed to fetch user profile' } };
-      }
-
-      return { profile, error: null };
+      // In a real app, we would save this to the database
+      // For demo, we'll just return the user
+      return { user: newUser, profile: newUser, error: null };
     } catch (error: any) {
-      return { profile: null, error: { message: error.message || 'An unexpected error occurred' } };
+      return { user: null, profile: null, error: { message: error.message || 'An error occurred during sign up' } };
     }
   }
 
-  // Listen to auth state changes
-  onAuthStateChange(callback: (event: string, session: any) => void) {
-    return supabase.auth.onAuthStateChange(callback);
-  }
-
-  // Helper method to send SMS (integrate with your SMS provider)
-  private async sendSMS(phone: string, message: string): Promise<boolean> {
-    // Integrate with SMS service like Twilio, AWS SNS, etc.
-    // Example with Twilio:
-    /*
+  async resetPasswordEmail(email: string) {
     try {
-      const response = await fetch('/api/send-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, message })
-      });
-      return response.ok;
-    } catch (error) {
-      console.error('SMS sending failed:', error);
-      return false;
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Check if user exists
+      if (!demoUsers[email.toLowerCase()]) {
+        return { error: { message: 'No account found with this email' } };
+      }
+      
+      // In a real app, we would send a reset email
+      return { error: null };
+    } catch (error: any) {
+      return { error: { message: error.message || 'An error occurred while sending reset email' } };
     }
-    */
-    
-    // For development, just log the message
-    console.log(`SMS to ${phone}: ${message}`);
-    return true;
+  }
+
+  async resetPasswordSMS(phone: string) {
+    try {
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // In a real app, we would send an SMS with a code
+      return { error: null };
+    } catch (error: any) {
+      return { error: { message: error.message || 'An error occurred while sending SMS' } };
+    }
+  }
+
+  async verifyResetCodeAndUpdatePassword(phone: string, code: string, newPassword: string) {
+    try {
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // In a real app, we would verify the code and update the password
+      if (code !== '123456') { // Demo verification code
+        return { error: { message: 'Invalid verification code' } };
+      }
+      
+      return { error: null };
+    } catch (error: any) {
+      return { error: { message: error.message || 'An error occurred while updating password' } };
+    }
   }
 }
 
